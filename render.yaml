@@ -1,0 +1,10 @@
+# Render.com Blueprint – wird von Render automatisch erkannt.
+# Damit sind Build-/Start-Befehle bereits vorkonfiguriert.
+services:
+  - type: web
+    name: h5p-converter
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true

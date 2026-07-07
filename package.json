@@ -1,0 +1,31 @@
+{
+  "name": "h5p-converter",
+  "version": "1.0.0",
+  "description": "Wandelt .h5p-Dateien in All-in-one-HTML-Dateien oder HTML5-Pakete um",
+  "main": "src/converter.js",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "start": "node src/server.js",
+    "convert": "node src/cli.js",
+    "postinstall": "node scripts/setup.js"
+  },
+  "keywords": [
+    "h5p",
+    "converter",
+    "html",
+    "standalone"
+  ],
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@lumieducation/h5p-html-exporter": "^10.0.4",
+    "@lumieducation/h5p-server": "^10.0.4",
+    "adm-zip": "^0.5.18",
+    "express": "^5.2.1",
+    "h5p-standalone": "^3.8.2",
+    "multer": "^2.2.0"
+  }
+}

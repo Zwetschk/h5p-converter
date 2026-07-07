@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>H5P Converter</title>
+    <style>
+        :root {
+            --accent: #2a6df4;
+            --accent-dark: #1c50b8;
+            --border: #d7dce3;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            background: #f2f4f8;
+            color: #1d2530;
+            display: flex;
+            justify-content: center;
+            padding: 40px 16px;
+        }
+        main { width: 100%; max-width: 640px; }
+        h1 { font-size: 1.6rem; margin: 0 0 4px; }
+        p.subtitle { margin: 0 0 24px; color: #5a6472; }
+        .card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(20, 30, 50, .06);
+        }
+        #dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 36px 16px;
+            text-align: center;
+            color: #5a6472;
+            cursor: pointer;
+            transition: border-color .15s, background .15s;
+        }
+        #dropzone.dragover { border-color: var(--accent); background: #eef3fe; }
+        #dropzone strong { color: #1d2530; }
+        #file-name { margin-top: 10px; font-weight: 600; color: var(--accent-dark); }
+        fieldset {
+            border: none; margin: 20px 0 0; padding: 0;
+        }
+        fieldset legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
+        label.option {
+            display: block;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        label.option:has(input:checked) { border-color: var(--accent); background: #eef3fe; }
+        label.option small { display: block; color: #5a6472; margin-top: 2px; }
+        button {
+            margin-top: 20px;
+            width: 100%;
+            padding: 13px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            background: var(--accent);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        button:hover:enabled { background: var(--accent-dark); }
+        button:disabled { background: #aab6c6; cursor: not-allowed; }
+        #status { margin-top: 14px; min-height: 22px; font-size: .95rem; }
+        #status.error { color: #b3261e; }
+        #status.ok { color: #1a7f37; }
+        footer { margin-top: 18px; font-size: .85rem; color: #7a8494; text-align: center; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>H5P Converter</h1>
+    <p class="subtitle">Wandelt eine .h5p-Datei in ausführbares HTML um – ganz ohne H5P-Server.</p>
+    <div class="card">
+        <div id="dropzone">
+            <strong>.h5p-Datei hierher ziehen</strong><br>oder klicken zum Auswählen
+            <div id="file-name"></div>
+        </div>
+        <input type="file" id="file-input" accept=".h5p" hidden>
+
+        <fieldset>
+            <legend>Ausgabeformat</legend>
+            <label class="option">
+                <input type="radio" name="format" value="html" checked>
+                All-in-one-HTML-Datei
+                <small>Eine einzige HTML-Datei, alles eingebettet. Läuft offline per Doppelklick – ideal zum Weitergeben.</small>
+            </label>
+            <label class="option">
+                <input type="radio" name="format" value="package">
+                HTML5-Paket (.zip)
+                <small>index.html + Player + Inhalte. Für Webserver, LMS oder Website-Einbindung (benötigt http/https).</small>
+            </label>
+        </fieldset>
+
+        <button id="convert-btn" disabled>Umwandeln &amp; herunterladen</button>
+        <div id="status"></div>
+    </div>
+    <footer>Basiert auf Lumi H5P-Nodejs-library und h5p-standalone. Alles läuft lokal auf deinem Rechner.</footer>
+</main>
+<script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const fileName = document.getElementById('file-name');
+    const convertBtn = document.getElementById('convert-btn');
+    const status = document.getElementById('status');
+    let selectedFile = null;
+
+    function setFile(file) {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.h5p')) {
+            setStatus('Bitte eine Datei mit der Endung .h5p auswählen.', 'error');
+            return;
+        }
+        selectedFile = file;
+        fileName.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)';
+        convertBtn.disabled = false;
+        setStatus('');
+    }
+
+    function setStatus(text, cls) {
+        status.textContent = text;
+        status.className = cls || '';
+    }
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        setFile(e.dataTransfer.files[0]);
+    });
+
+    convertBtn.addEventListener('click', async () => {
+        if (!selectedFile) return;
+        const format = document.querySelector('input[name="format"]:checked').value;
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('format', format);
+
+        convertBtn.disabled = true;
+        setStatus('Konvertiere … bei großen Dateien kann das eine Weile dauern.');
+        try {
+            const res = await fetch('/convert', { method: 'POST', body: formData });
+            if (!res.ok) {
+                let message = 'Konvertierung fehlgeschlagen.';
+                try { message = (await res.json()).error || message; } catch {}
+                throw new Error(message);
+            }
+            const blob = await res.blob();
+            const disposition = res.headers.get('Content-Disposition') || '';
+            const match = disposition.match(/filename\*=UTF-8''([^;]+)/);
+            const name = match
+                ? decodeURIComponent(match[1])
+                : (format === 'html' ? 'h5p-inhalt.html' : 'h5p-html5-paket.zip');
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(url);
+            setStatus('Fertig! Die Datei wurde heruntergeladen.', 'ok');
+        } catch (error) {
+            setStatus(error.message, 'error');
+        } finally {
+            convertBtn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>
