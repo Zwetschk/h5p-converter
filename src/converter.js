@@ -2,10 +2,14 @@
  * Kernlogik: wandelt .h5p-Dateien um in
  *  1. eine All-in-one-HTML-Datei (alles eingebettet, läuft offline per Doppelklick)
  *  2. ein HTML5-Paket (.zip mit index.html + h5p-standalone-Player, für Webserver/LMS)
+ *
+ * Fehlen in der .h5p-Datei die benötigten Bibliotheken (z. B. bei Exporten aus
+ * Moodle ohne "Bibliotheken einbeziehen"), werden sie automatisch vom
+ * offiziellen H5P-Hub nachinstalliert.
  */
 const path = require('path');
 const os = require('os');
-const { promises: fs, createReadStream } = require('fs');
+const { promises: fs, createWriteStream } = require('fs');
 const AdmZip = require('adm-zip');
 const H5P = require('@lumieducation/h5p-server');
 const HtmlExporter = require('@lumieducation/h5p-html-exporter').default;
@@ -40,13 +44,10 @@ async function assertSetupDone() {
 }
 
 /**
- * Erzeugt eine einzelne HTML-Datei, in der alle Skripte, Styles und Medien
- * eingebettet sind. Nutzt den Lumi-HTML-Exporter (gleiche Technik wie die
- * Lumi-Desktop-App).
- * @param {string} inputPath Pfad zur .h5p-Datei
- * @returns {Promise<{html: string, title: string}>}
+ * Baut eine temporäre H5P-Server-Umgebung auf (Bibliotheks-/Inhaltsspeicher im
+ * Temp-Verzeichnis), führt callback aus und räumt danach wieder auf.
  */
-async function convertToAllInOneHtml(inputPath) {
+async function withH5PEnvironment(callback) {
     await assertSetupDone();
     const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'h5p-conv-'));
     try {
@@ -58,7 +59,6 @@ async function convertToAllInOneHtml(inputPath) {
                 fs.mkdir(dir, { recursive: true })
             )
         );
-
         const config = new H5P.H5PConfig(
             new H5P.fsImplementations.InMemoryStorage(),
             { baseUrl: '' }
@@ -69,36 +69,139 @@ async function convertToAllInOneHtml(inputPath) {
             temporaryPath,
             contentPath
         );
+        return await callback(h5pEditor, config, workDir);
+    } finally {
+        await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+}
 
-        const buffer = await fs.readFile(inputPath);
-        const { metadata, parameters } = await h5pEditor.uploadPackage(
-            buffer,
-            USER
-        );
-        if (!metadata || !parameters) {
-            throw new Error(
-                'Die Datei enthält keinen abspielbaren Inhalt (nur Bibliotheken?).'
+/**
+ * Liest die fehlenden Bibliotheken aus einem "install-missing-libraries"-Fehler.
+ * @returns {string[]} Ubernames wie "H5P.CoursePresentation-1.26" (leer, wenn
+ * es ein anderer Fehler ist)
+ */
+function getMissingLibraries(error) {
+    if (!error || error.errorId !== 'install-missing-libraries') return [];
+    const libs = error.replacements && error.replacements.libraries;
+    if (Array.isArray(libs)) return libs;
+    if (typeof libs === 'string') {
+        return libs
+            .split(',')
+            .map((l) => l.trim())
+            .filter(Boolean);
+    }
+    return [];
+}
+
+/**
+ * Versucht, fehlende Inhaltstypen vom offiziellen H5P-Hub zu installieren.
+ * Der Hub liefert immer die aktuellste Version eines Inhaltstyps inklusive
+ * aller Abhängigkeiten.
+ */
+async function installMissingFromHub(h5pEditor, missingUbernames) {
+    await h5pEditor.contentTypeCache.updateIfNecessary();
+    const machineNames = [
+        ...new Set(
+            missingUbernames.map((u) => u.substring(0, u.lastIndexOf('-')))
+        )
+    ];
+    for (const machineName of machineNames) {
+        try {
+            const result = await h5pEditor.installLibraryFromHub(
+                machineName,
+                USER
+            );
+            console.log(
+                `Vom H5P-Hub installiert: ${machineName} (${result.length} Bibliotheken)`
+            );
+        } catch (error) {
+            // Nicht jede fehlende Bibliothek ist ein eigenständiger
+            // Hub-Inhaltstyp – Abhängigkeiten kommen mit dem Hauptpaket mit.
+            console.warn(
+                `Hub-Installation von ${machineName} nicht möglich: ${error.message}`
             );
         }
+    }
+}
 
-        const mainDependency = (metadata.preloadedDependencies || []).find(
-            (dep) => dep.machineName === metadata.mainLibrary
+/**
+ * Importiert eine .h5p-Datei. Fehlen Bibliotheken, wird einmalig versucht,
+ * sie vom H5P-Hub nachzuladen, danach wird der Import wiederholt.
+ */
+async function importPackage(h5pEditor, buffer) {
+    try {
+        return await h5pEditor.uploadPackage(buffer, USER);
+    } catch (error) {
+        const missing = getMissingLibraries(error);
+        if (missing.length === 0) throw error;
+        console.log(
+            `Datei enthält benötigte Bibliotheken nicht (${missing.join(', ')}) – lade vom H5P-Hub nach ...`
         );
-        if (!mainDependency) {
-            throw new Error(
-                'Hauptbibliothek konnte in h5p.json nicht ermittelt werden.'
-            );
+        await installMissingFromHub(h5pEditor, missing);
+        try {
+            return await h5pEditor.uploadPackage(buffer, USER);
+        } catch (retryError) {
+            const stillMissing = getMissingLibraries(retryError);
+            if (stillMissing.length > 0) {
+                throw new Error(
+                    `Diese H5P-Datei wurde ohne die benötigten Bibliotheken exportiert, ` +
+                        `und folgende Versionen sind auch über den H5P-Hub nicht (mehr) erhältlich: ` +
+                        `${stillMissing.join(', ')}. Lösungen: (1) Den Inhalt auf der Ursprungs-` +
+                        `plattform MIT Bibliotheken exportieren (Moodle: Website-Administration → ` +
+                        `H5P → "Bibliotheken in Export einbeziehen"; Lumi und h5p.org machen das ` +
+                        `automatisch) oder (2) den Inhalt dort zuerst auf die neueste Version des ` +
+                        `Inhaltstyps aktualisieren und erneut exportieren.`
+                );
+            }
+            throw retryError;
         }
-        const ubername = `${mainDependency.machineName} ${mainDependency.majorVersion}.${mainDependency.minorVersion}`;
+    }
+}
 
-        const contentId = await h5pEditor.saveOrUpdateContent(
-            undefined,
-            parameters.params ?? parameters,
-            metadata,
-            ubername,
-            USER
+/**
+ * Importiert die Datei und speichert den Inhalt im temporären Speicher.
+ * @returns {Promise<{contentId: string, metadata: object}>}
+ */
+async function importAndSave(h5pEditor, inputPath) {
+    const buffer = await fs.readFile(inputPath);
+    const { metadata, parameters } = await importPackage(h5pEditor, buffer);
+    if (!metadata || !parameters) {
+        throw new Error(
+            'Die Datei enthält keinen abspielbaren Inhalt (nur Bibliotheken?).'
         );
+    }
+    const mainDependency = (metadata.preloadedDependencies || []).find(
+        (dep) => dep.machineName === metadata.mainLibrary
+    );
+    if (!mainDependency) {
+        throw new Error(
+            'Hauptbibliothek konnte in h5p.json nicht ermittelt werden.'
+        );
+    }
+    const ubername = `${mainDependency.machineName} ${mainDependency.majorVersion}.${mainDependency.minorVersion}`;
+    const contentId = await h5pEditor.saveOrUpdateContent(
+        undefined,
+        parameters.params ?? parameters,
+        metadata,
+        ubername,
+        USER
+    );
+    return { contentId, metadata };
+}
 
+/**
+ * Erzeugt eine einzelne HTML-Datei, in der alle Skripte, Styles und Medien
+ * eingebettet sind. Nutzt den Lumi-HTML-Exporter (gleiche Technik wie die
+ * Lumi-Desktop-App).
+ * @param {string} inputPath Pfad zur .h5p-Datei
+ * @returns {Promise<{html: string, title: string}>}
+ */
+async function convertToAllInOneHtml(inputPath) {
+    return withH5PEnvironment(async (h5pEditor, config) => {
+        const { contentId, metadata } = await importAndSave(
+            h5pEditor,
+            inputPath
+        );
         const exporter = new HtmlExporter(
             h5pEditor.libraryStorage,
             h5pEditor.contentStorage,
@@ -111,28 +214,62 @@ async function convertToAllInOneHtml(inputPath) {
             showFrame: false,
             showLicenseButton: false
         });
-        return { html, title: metadata.title || path.parse(inputPath).name };
-    } finally {
-        await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
-    }
+        return {
+            html,
+            title: metadata.title || path.parse(inputPath).name
+        };
+    });
 }
 
 /**
  * Erzeugt ein HTML5-Paket: entpackte H5P-Inhalte + h5p-standalone-Player +
- * generierte index.html, verpackt als Zip. Muss über einen Webserver
- * ausgeliefert werden (file:// funktioniert wegen Browser-Sicherheitsregeln nicht).
+ * generierte index.html, verpackt als Zip. Der Inhalt wird vorher importiert
+ * und als vollständiges Paket (inkl. aller – ggf. vom Hub nachgeladener –
+ * Bibliotheken) neu exportiert. Muss über einen Webserver ausgeliefert werden
+ * (file:// funktioniert wegen Browser-Sicherheitsregeln nicht).
  * @param {string} inputPath Pfad zur .h5p-Datei
  * @returns {Promise<{zip: Buffer, title: string}>}
  */
 async function convertToHtml5Package(inputPath) {
-    const source = new AdmZip(await fs.readFile(inputPath));
-    const h5pJsonEntry = source.getEntry('h5p.json');
-    if (!h5pJsonEntry) {
-        throw new Error('Keine gültige H5P-Datei: h5p.json fehlt im Archiv.');
-    }
-    const h5pJson = JSON.parse(h5pJsonEntry.getData().toString('utf8'));
-    const title = h5pJson.title || path.parse(inputPath).name;
+    return withH5PEnvironment(async (h5pEditor, config, workDir) => {
+        const { contentId, metadata } = await importAndSave(
+            h5pEditor,
+            inputPath
+        );
+        // Vollständiges .h5p exportieren – enthält garantiert alle Bibliotheken
+        const packageExporter = new H5P.PackageExporter(
+            h5pEditor.libraryManager,
+            h5pEditor.contentStorage,
+            {
+                exportMaxContentPathLength:
+                    config.exportMaxContentPathLength || 255,
+                permissionSystem: new H5P.LaissezFairePermissionSystem()
+            }
+        );
+        const completePath = path.join(workDir, 'complete.h5p');
+        await new Promise((resolve, reject) => {
+            const out = createWriteStream(completePath);
+            out.on('finish', resolve);
+            out.on('error', reject);
+            packageExporter
+                .createPackage(contentId, out, USER)
+                .catch(reject);
+        });
+        const title = metadata.title || path.parse(inputPath).name;
+        const zip = await buildStandaloneZip(
+            await fs.readFile(completePath),
+            title
+        );
+        return { zip, title };
+    });
+}
 
+/**
+ * Baut aus einem vollständigen .h5p-Puffer das HTML5-Paket-Zip
+ * (h5p-content/ + assets/ + index.html + LIESMICH.txt).
+ */
+async function buildStandaloneZip(h5pBuffer, title) {
+    const source = new AdmZip(h5pBuffer);
     const out = new AdmZip();
 
     // Entpackte H5P-Inhalte unter h5p-content/ ablegen
@@ -146,8 +283,7 @@ async function convertToHtml5Package(inputPath) {
 
     out.addFile('index.html', Buffer.from(buildPackageIndexHtml(title), 'utf8'));
     out.addFile('LIESMICH.txt', Buffer.from(buildPackageReadme(title), 'utf8'));
-
-    return { zip: out.toBuffer(), title };
+    return out.toBuffer();
 }
 
 async function addDirToZip(zip, dir, prefix) {
