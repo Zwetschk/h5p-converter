@@ -1,6 +1,6 @@
 {
   "name": "h5p-converter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Wandelt .h5p-Dateien in All-in-one-HTML-Dateien oder HTML5-Pakete um",
   "main": "src/converter.js",
   "scripts": {
