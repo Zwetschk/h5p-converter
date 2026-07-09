@@ -230,6 +230,12 @@ async function withH5PEnvironment(callback) {
             new H5P.fsImplementations.InMemoryStorage(),
             { baseUrl: '' }
         );
+        // Auf langsamen Cloud-Instanzen (z. B. Render Free) dauert das
+        // Installieren einzelner Bibliotheken länger als die Standard-
+        // Zeitlimits (10/20 s) – sonst bricht der Import großer Pakete
+        // mit "install-library-lock-max-time-exceeded" ab.
+        config.installLibraryLockMaxOccupationTime = 180000;
+        config.installLibraryLockTimeout = 300000;
         const h5pEditor = H5P.fs(
             config,
             librariesPath,
