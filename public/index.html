@@ -56,6 +56,45 @@
         }
         label.option:has(input:checked) { border-color: var(--accent); background: #eef3fe; }
         label.option small { display: block; color: #5a6472; margin-top: 2px; }
+        details.styling {
+            margin-top: 20px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        details.styling summary {
+            font-weight: 600;
+            cursor: pointer;
+        }
+        details.styling .hint { font-size: .85rem; color: #5a6472; margin: 8px 0 12px; }
+        .style-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 14px;
+            margin-top: 12px;
+        }
+        .style-grid .full { grid-column: 1 / -1; }
+        .style-grid label.field {
+            display: block;
+            font-size: .88rem;
+            color: #3a4452;
+        }
+        .style-grid input[type=number], .style-grid input[type=text],
+        .style-grid select, .style-grid textarea {
+            width: 100%;
+            margin-top: 4px;
+            padding: 7px 9px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: .92rem;
+            box-sizing: border-box;
+        }
+        .style-grid textarea { font-family: Consolas, monospace; min-height: 90px; resize: vertical; }
+        .margin-row { display: flex; gap: 8px; }
+        .margin-row label.field { flex: 1; }
+        .color-row { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: #3a4452; }
+        .color-row input[type=color] { width: 40px; height: 28px; border: 1px solid var(--border); border-radius: 6px; padding: 1px; background: #fff; }
+        .color-row input[type=checkbox] { margin: 0; }
         button {
             margin-top: 20px;
             width: 100%;
@@ -101,10 +140,60 @@
             </label>
         </fieldset>
 
+        <details class="styling" id="styling">
+            <summary>Gestaltung anpassen (optional)</summary>
+            <p class="hint">Alle Felder sind optional – leere Felder lassen die Original-Darstellung unverändert.</p>
+            <div class="style-grid">
+                <div class="full">
+                    <label class="field">Ränder in px (oben / rechts / unten / links)</label>
+                    <div class="margin-row">
+                        <label class="field"><input type="number" id="m-top" min="0" max="2000" placeholder="oben"></label>
+                        <label class="field"><input type="number" id="m-right" min="0" max="2000" placeholder="rechts"></label>
+                        <label class="field"><input type="number" id="m-bottom" min="0" max="2000" placeholder="unten"></label>
+                        <label class="field"><input type="number" id="m-left" min="0" max="2000" placeholder="links"></label>
+                    </div>
+                </div>
+                <label class="field">Breite (z.&nbsp;B. <code>800px</code> oder <code>90%</code>)
+                    <input type="text" id="width" placeholder="Standard">
+                </label>
+                <label class="field">Schriftart
+                    <select id="font">
+                        <option value="">Standard (wie im Inhalt)</option>
+                        <option value="Arial">Arial / Helvetica</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Tahoma">Tahoma</option>
+                        <option value="'Trebuchet MS'">Trebuchet MS</option>
+                        <option value="'Segoe UI'">Segoe UI</option>
+                        <option value="system-ui">Systemschrift</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="'Times New Roman'">Times New Roman</option>
+                        <option value="'Courier New'">Courier New (Monospace)</option>
+                        <option value="'Comic Sans MS'">Comic Sans MS</option>
+                        <option value="__custom__">Eigene Schrift eingeben …</option>
+                    </select>
+                    <input type="text" id="font-custom" placeholder="Name der Schriftart" style="display:none; margin-top:6px;">
+                </label>
+                <div class="full" style="display:grid; grid-template-columns:1fr 1fr; gap:8px 14px;">
+                    <label class="color-row"><input type="checkbox" id="c-page-on"><input type="color" id="c-page" value="#f5f5f5"> Seitenhintergrund</label>
+                    <label class="color-row"><input type="checkbox" id="c-content-on"><input type="color" id="c-content" value="#ffffff"> Inhalts-Hintergrund</label>
+                    <label class="color-row"><input type="checkbox" id="c-text-on"><input type="color" id="c-text" value="#1d2530"> Textfarbe</label>
+                    <label class="color-row"><input type="checkbox" id="c-accent-on"><input type="color" id="c-accent" value="#2a6df4"> Akzentfarbe (Buttons &amp; Links)</label>
+                </div>
+                <div class="full">
+                    <label class="field">Eigenes CSS (wird zusätzlich angewendet)
+                        <textarea id="custom-css" placeholder=".h5p-content { border-radius: 12px; }"></textarea>
+                    </label>
+                    <label class="field" style="margin-top:6px;">… oder CSS-Datei laden:
+                        <input type="file" id="css-file" accept=".css,text/css">
+                    </label>
+                </div>
+            </div>
+        </details>
+
         <button id="convert-btn" disabled>Umwandeln &amp; herunterladen</button>
         <div id="status"></div>
     </div>
-    <footer>Basiert auf Lumi H5P-Nodejs-library und h5p-standalone. Fehlende Bibliotheken werden automatisch vom H5P-Hub nachgeladen. · v1.1.0</footer>
+    <footer>Basiert auf Lumi H5P-Nodejs-library und h5p-standalone. Fehlende Bibliotheken werden automatisch vom H5P-Hub nachgeladen. · v1.2.0</footer>
 </main>
 <script>
     const dropzone = document.getElementById('dropzone');
@@ -144,12 +233,61 @@
         setFile(e.dataTransfer.files[0]);
     });
 
+    // Gestaltung: Eigene-Schrift-Feld ein-/ausblenden
+    const fontSelect = document.getElementById('font');
+    const fontCustom = document.getElementById('font-custom');
+    fontSelect.addEventListener('change', () => {
+        fontCustom.style.display = fontSelect.value === '__custom__' ? 'block' : 'none';
+    });
+
+    // Gestaltung: CSS-Datei in das Textfeld laden
+    document.getElementById('css-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const area = document.getElementById('custom-css');
+            area.value = (area.value ? area.value + '\n\n' : '') +
+                '/* Aus Datei: ' + file.name + ' */\n' + reader.result;
+        };
+        reader.readAsText(file);
+    });
+
+    function collectStyleOptions() {
+        const num = (id) => {
+            const v = document.getElementById(id).value;
+            return v === '' ? null : Number(v);
+        };
+        const color = (id) =>
+            document.getElementById(id + '-on').checked
+                ? document.getElementById(id).value
+                : null;
+        let font = fontSelect.value;
+        if (font === '__custom__') font = fontCustom.value.trim();
+        const options = {
+            marginTop: num('m-top'),
+            marginRight: num('m-right'),
+            marginBottom: num('m-bottom'),
+            marginLeft: num('m-left'),
+            width: document.getElementById('width').value.trim() || null,
+            font: font || null,
+            colorPage: color('c-page'),
+            colorContent: color('c-content'),
+            colorText: color('c-text'),
+            colorAccent: color('c-accent'),
+            customCss: document.getElementById('custom-css').value.trim() || null
+        };
+        return Object.values(options).some((v) => v !== null) ? options : null;
+    }
+
     convertBtn.addEventListener('click', async () => {
         if (!selectedFile) return;
         const format = document.querySelector('input[name="format"]:checked').value;
         const formData = new FormData();
         formData.append('file', selectedFile);
         formData.append('format', format);
+        const styleOptions = collectStyleOptions();
+        if (styleOptions) formData.append('style', JSON.stringify(styleOptions));
 
         convertBtn.disabled = true;
         setStatus('Konvertiere … bei großen Dateien kann das eine Weile dauern.');

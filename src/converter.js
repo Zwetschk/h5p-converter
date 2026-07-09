@@ -32,6 +32,173 @@ const USER = {
     type: 'local'
 };
 
+/* ------------------------------------------------------------------ *
+ *  Gestaltungsoptionen (Ränder, Breite, Schrift, Farben, eigenes CSS)
+ * ------------------------------------------------------------------ */
+
+/** Elemente, auf die Schrift-/Textfarbwahl wirken soll (bewusst ohne
+ *  span/div/button, damit H5P-Icon-Fonts nicht zerstört werden). */
+const TEXT_SELECTORS =
+    'body, .h5p-content, p, h1, h2, h3, h4, h5, h6, li, ul, ol, td, th, ' +
+    'dd, dt, label, legend, figcaption, blockquote, input, select, textarea';
+
+function sanitizeCssValue(value, maxLength = 120) {
+    return String(value)
+        .replace(/[;{}<>]/g, '')
+        .trim()
+        .substring(0, maxLength);
+}
+
+function parsePx(value) {
+    const n = Number.parseInt(value, 10);
+    if (Number.isNaN(n)) return null;
+    return Math.min(Math.max(n, 0), 2000);
+}
+
+function parseWidth(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const m = String(value)
+        .trim()
+        .match(/^(\d{1,4})\s*(px|%)?$/);
+    if (!m) return null;
+    const n = Number.parseInt(m[1], 10);
+    const unit = m[2] || 'px';
+    if (unit === '%' && (n < 5 || n > 100)) return null;
+    if (unit === 'px' && (n < 100 || n > 4000)) return null;
+    return `${n}${unit}`;
+}
+
+function parseColor(value) {
+    if (!value) return null;
+    const v = String(value).trim();
+    return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : null;
+}
+
+/**
+ * Bereinigt/validiert die vom Aufrufer übergebenen Gestaltungsoptionen.
+ * Unbekannte oder ungültige Werte werden verworfen.
+ */
+function normalizeStyleOptions(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const o = {
+        marginTop: parsePx(raw.marginTop),
+        marginRight: parsePx(raw.marginRight),
+        marginBottom: parsePx(raw.marginBottom),
+        marginLeft: parsePx(raw.marginLeft),
+        width: parseWidth(raw.width),
+        font: raw.font ? sanitizeCssValue(raw.font) : null,
+        colorPage: parseColor(raw.colorPage),
+        colorContent: parseColor(raw.colorContent),
+        colorText: parseColor(raw.colorText),
+        colorAccent: parseColor(raw.colorAccent),
+        customCss:
+            typeof raw.customCss === 'string' && raw.customCss.trim()
+                ? // "</style>"-Ausbruch verhindern; 200-KB-Limit
+                  raw.customCss.replace(/<\//g, '<\\/').substring(0, 200 * 1024)
+                : null
+    };
+    const hasAny = Object.values(o).some((v) => v !== null);
+    return hasAny ? o : null;
+}
+
+/**
+ * CSS für das Seitenlayout (Ränder, Breite, Seitenhintergrund).
+ * Wirkt auf die äußere Seite (bei HTML5-Paketen: die index.html,
+ * nicht das H5P-iframe).
+ */
+function buildLayoutCss(o) {
+    if (!o) return '';
+    const rules = [];
+    const margins = [o.marginTop, o.marginRight, o.marginBottom, o.marginLeft];
+    if (margins.some((m) => m !== null)) {
+        const [t, r, b, l] = margins.map((m) => `${m ?? 0}px`);
+        rules.push(
+            `body { margin: 0 !important; padding: ${t} ${r} ${b} ${l} !important; box-sizing: border-box; }`
+        );
+        // Standard-Innenabstand des Paket-Wrappers neutralisieren
+        rules.push('.wrapper { padding: 0 !important; }');
+    }
+    if (o.width) {
+        rules.push(
+            `.h5p-content, #h5p-container { width: ${o.width} !important; max-width: 100% !important; ` +
+                'margin-left: auto !important; margin-right: auto !important; }'
+        );
+        rules.push('.wrapper { max-width: none !important; }');
+    }
+    if (o.colorPage) {
+        rules.push(`html, body { background: ${o.colorPage} !important; }`);
+    }
+    return rules.join('\n');
+}
+
+/**
+ * CSS für den Inhalt selbst (Schrift, Farben, eigenes CSS).
+ * Muss bei HTML5-Paketen ins H5P-iframe geladen werden (customCss),
+ * bei All-in-one-HTML einfach in den <head>.
+ */
+function buildThemeCss(o) {
+    if (!o) return '';
+    const rules = [];
+    if (o.font) {
+        rules.push(
+            `${TEXT_SELECTORS} { font-family: ${o.font}, sans-serif !important; }`
+        );
+    }
+    if (o.colorText) {
+        rules.push(`${TEXT_SELECTORS} { color: ${o.colorText} !important; }`);
+    }
+    if (o.colorContent) {
+        rules.push(
+            `.h5p-content { background: ${o.colorContent} !important; }`
+        );
+    }
+    if (o.colorAccent) {
+        rules.push(
+            `.h5p-joubelui-button { background-color: ${o.colorAccent} !important; border-color: ${o.colorAccent} !important; background-image: none !important; }`,
+            `.h5p-joubelui-button:hover, .h5p-joubelui-button:focus { filter: brightness(0.9); }`,
+            `a { color: ${o.colorAccent} !important; }`,
+            `.h5p-joubelui-progressbar-background,` +
+                ` .h5p-progressbar .h5p-progressbar-part-show,` +
+                ` .h5p-progressbar .h5p-progressbar-part-selected` +
+                ` { background-color: ${o.colorAccent} !important; background-image: none !important; }`
+        );
+    }
+    if (o.customCss) {
+        rules.push('/* Eigenes CSS */', o.customCss);
+    }
+    return rules.join('\n');
+}
+
+/**
+ * Eigenes Seiten-Template für den HTML-Exporter: identisch zum
+ * Standard-Template, ergänzt um einen Style-Block mit den
+ * Benutzeranpassungen (nach dem H5P-CSS, damit sie Vorrang haben).
+ */
+function buildExporterTemplate(customCss) {
+    return (integration, scriptsBundle, stylesBundle, contentId) => `<!doctype html>
+<html class="h5p-iframe">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>H5PIntegration = ${JSON.stringify({
+        ...integration,
+        baseUrl: '.',
+        url: '.',
+        ajax: { setFinished: '', contentUserData: '' },
+        saveFreq: false,
+        libraryUrl: ''
+    })};
+    ${scriptsBundle}</script>
+    <style>${stylesBundle}</style>
+    <style>/* Benutzeranpassungen (H5P Converter) */
+${customCss}</style>
+</head>
+<body>
+    <div class="h5p-content lag" data-content-id="${contentId}"></div>
+</body>
+</html>`;
+}
+
 async function assertSetupDone() {
     try {
         await fs.access(path.join(CORE_PATH, 'js'));
@@ -194,20 +361,26 @@ async function importAndSave(h5pEditor, inputPath) {
  * eingebettet sind. Nutzt den Lumi-HTML-Exporter (gleiche Technik wie die
  * Lumi-Desktop-App).
  * @param {string} inputPath Pfad zur .h5p-Datei
+ * @param {object} [rawStyleOptions] optionale Gestaltungsoptionen
  * @returns {Promise<{html: string, title: string}>}
  */
-async function convertToAllInOneHtml(inputPath) {
+async function convertToAllInOneHtml(inputPath, rawStyleOptions) {
+    const styleOptions = normalizeStyleOptions(rawStyleOptions);
     return withH5PEnvironment(async (h5pEditor, config) => {
         const { contentId, metadata } = await importAndSave(
             h5pEditor,
             inputPath
         );
+        const customCss = styleOptions
+            ? `${buildLayoutCss(styleOptions)}\n${buildThemeCss(styleOptions)}`
+            : '';
         const exporter = new HtmlExporter(
             h5pEditor.libraryStorage,
             h5pEditor.contentStorage,
             config,
             CORE_PATH,
-            EDITOR_PATH
+            EDITOR_PATH,
+            customCss.trim() ? buildExporterTemplate(customCss) : undefined
         );
         const html = await exporter.createSingleBundle(contentId, USER, {
             language: metadata.defaultLanguage || 'de',
@@ -228,9 +401,11 @@ async function convertToAllInOneHtml(inputPath) {
  * Bibliotheken) neu exportiert. Muss über einen Webserver ausgeliefert werden
  * (file:// funktioniert wegen Browser-Sicherheitsregeln nicht).
  * @param {string} inputPath Pfad zur .h5p-Datei
+ * @param {object} [rawStyleOptions] optionale Gestaltungsoptionen
  * @returns {Promise<{zip: Buffer, title: string}>}
  */
-async function convertToHtml5Package(inputPath) {
+async function convertToHtml5Package(inputPath, rawStyleOptions) {
+    const styleOptions = normalizeStyleOptions(rawStyleOptions);
     return withH5PEnvironment(async (h5pEditor, config, workDir) => {
         const { contentId, metadata } = await importAndSave(
             h5pEditor,
@@ -258,7 +433,8 @@ async function convertToHtml5Package(inputPath) {
         const title = metadata.title || path.parse(inputPath).name;
         const zip = await buildStandaloneZip(
             await fs.readFile(completePath),
-            title
+            title,
+            styleOptions
         );
         return { zip, title };
     });
@@ -268,7 +444,7 @@ async function convertToHtml5Package(inputPath) {
  * Baut aus einem vollständigen .h5p-Puffer das HTML5-Paket-Zip
  * (h5p-content/ + assets/ + index.html + LIESMICH.txt).
  */
-async function buildStandaloneZip(h5pBuffer, title) {
+async function buildStandaloneZip(h5pBuffer, title, styleOptions) {
     const source = new AdmZip(h5pBuffer);
     const out = new AdmZip();
 
@@ -281,7 +457,23 @@ async function buildStandaloneZip(h5pBuffer, title) {
     // h5p-standalone-Player unter assets/ ablegen
     await addDirToZip(out, STANDALONE_DIST, 'assets');
 
-    out.addFile('index.html', Buffer.from(buildPackageIndexHtml(title), 'utf8'));
+    // Schrift/Farben/eigenes CSS müssen ins H5P-iframe geladen werden
+    // (per customCss-Option von h5p-standalone), Layout wirkt auf die Seite.
+    const themeCss = buildThemeCss(styleOptions);
+    if (themeCss.trim()) {
+        out.addFile('custom.css', Buffer.from(themeCss, 'utf8'));
+    }
+    out.addFile(
+        'index.html',
+        Buffer.from(
+            buildPackageIndexHtml(
+                title,
+                buildLayoutCss(styleOptions),
+                themeCss.trim() ? 'custom.css' : null
+            ),
+            'utf8'
+        )
+    );
     out.addFile('LIESMICH.txt', Buffer.from(buildPackageReadme(title), 'utf8'));
     return out.toBuffer();
 }
@@ -299,7 +491,7 @@ async function addDirToZip(zip, dir, prefix) {
     }
 }
 
-function buildPackageIndexHtml(title) {
+function buildPackageIndexHtml(title, layoutCss = '', customCssFile = null) {
     return `<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -313,6 +505,8 @@ function buildPackageIndexHtml(title) {
         #file-protocol-hint { display: none; background: #fff3cd; border: 1px solid #ffe08a;
             border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; }
     </style>
+    <style>/* Benutzeranpassungen (H5P Converter) */
+${layoutCss}</style>
 </head>
 <body>
     <div class="wrapper">
@@ -331,7 +525,7 @@ function buildPackageIndexHtml(title) {
         // Absolute URLs relativ zum Ordner der index.html bilden – h5p-standalone
         // setzt rein relative Pfade nicht zuverlässig zusammen.
         var base = window.location.href.split(/[?#]/)[0].replace(/[^/]*$/, '');
-        new H5PStandalone.H5P(document.getElementById('h5p-container'), {
+        var options = {
             h5pJsonPath: base + 'h5p-content',
             librariesPath: base + 'h5p-content',
             frameJs: base + 'assets/frame.bundle.js',
@@ -340,7 +534,9 @@ function buildPackageIndexHtml(title) {
             copyright: false,
             export: false,
             fullScreen: true
-        }).catch(function (error) {
+        };
+        ${customCssFile ? `options.customCss = [base + '${customCssFile}'];` : ''}
+        new H5PStandalone.H5P(document.getElementById('h5p-container'), options).catch(function (error) {
             console.error('H5P konnte nicht geladen werden:', error);
         });
     </script>

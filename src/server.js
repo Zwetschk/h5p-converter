@@ -27,9 +27,22 @@ app.post('/convert', upload.single('file'), async (req, res) => {
         return res.status(400).json({ error: 'Keine Datei hochgeladen.' });
     }
     const format = req.body.format === 'package' ? 'package' : 'html';
+    let styleOptions = null;
+    if (req.body.style) {
+        try {
+            styleOptions = JSON.parse(req.body.style);
+        } catch {
+            return res
+                .status(400)
+                .json({ error: 'Gestaltungsoptionen sind kein gültiges JSON.' });
+        }
+    }
     try {
         if (format === 'html') {
-            const { html, title } = await convertToAllInOneHtml(req.file.path);
+            const { html, title } = await convertToAllInOneHtml(
+                req.file.path,
+                styleOptions
+            );
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             res.setHeader(
                 'Content-Disposition',
@@ -37,7 +50,10 @@ app.post('/convert', upload.single('file'), async (req, res) => {
             );
             res.send(html);
         } else {
-            const { zip, title } = await convertToHtml5Package(req.file.path);
+            const { zip, title } = await convertToHtml5Package(
+                req.file.path,
+                styleOptions
+            );
             res.setHeader('Content-Type', 'application/zip');
             res.setHeader(
                 'Content-Disposition',

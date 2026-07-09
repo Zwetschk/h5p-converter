@@ -53,6 +53,31 @@ node src/cli.js meine-datei.h5p --format package   # HTML5-Paket (.zip)
 node src/cli.js *.h5p --format both --out ausgabe  # beides, in Zielordner
 ```
 
+## Gestaltung anpassen (wie in Lumi Desktop)
+
+Beim Export lassen sich optional Layout und Aussehen anpassen – in der
+Web-Oberfläche über den Bereich **„Gestaltung anpassen"**, auf der
+Kommandozeile per Flags:
+
+| Einstellung | Web-UI | CLI |
+|---|---|---|
+| Ränder (oben/rechts/unten/links, px) | 4 Zahlenfelder | `--rand 24,16,24,16` |
+| Breite (px oder %) | Textfeld | `--breite 800px` / `--breite 90%` |
+| Schriftart | Auswahlliste + Freitext | `--schrift "Georgia"` |
+| Seitenhintergrund | Farbwähler | `--farbe-seite "#222222"` |
+| Inhalts-Hintergrund | Farbwähler | `--farbe-inhalt "#ffffff"` |
+| Textfarbe | Farbwähler | `--farbe-text "#333333"` |
+| Akzentfarbe (Buttons, Links, Fortschrittsbalken) | Farbwähler | `--farbe-akzent "#e8590c"` |
+| Eigenes CSS | Textfeld oder CSS-Datei laden | `--css eigene.css` |
+
+Alle Angaben sind optional; leere Felder lassen die Original-Darstellung
+unverändert. Beim HTML5-Paket landen Schrift/Farben/eigenes CSS in einer
+`custom.css` im Paket (per h5p-standalone-`customCss`-Option ins H5P-iframe
+geladen), Ränder/Breite in der `index.html`. Hinweis: Die Schriftänderung
+wirkt bewusst nicht auf Icon-Schriften und kann von einzelnen Inhaltstypen
+mit sehr spezifischem CSS übersteuert werden – dafür gibt es das Feld
+„Eigenes CSS".
+
 ## Projektstruktur
 
 ```
