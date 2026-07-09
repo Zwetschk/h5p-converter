@@ -1,0 +1,349 @@
+/* ==========================================================================
+   H5P CONVERTER – CSS-VORLAGE FÜR DAS FELD „EIGENES CSS"
+   ==========================================================================
+
+   SO BENUTZT DU DIESE VORLAGE
+   ---------------------------
+   1. Alle Regeln sind auskommentiert (stehen zwischen Schrägstrich-Stern
+      und Stern-Schrägstrich) und damit AUSGESCHALTET.
+   2. Suche die gewünschte Eigenschaft, entferne die Kommentarzeichen
+      um den Regelblock und trage deinen Wert ein.
+   3. Datei speichern und im Converter über „… oder CSS-Datei laden"
+      auswählen (oder den Inhalt ins Textfeld kopieren).
+
+   WICHTIG ZU WISSEN
+   -----------------
+   - Es ist ganz normales CSS. Jede Regel hat die Form:
+        SELEKTOR { EIGENSCHAFT: WERT; }
+   - Das „!important" am Ende der Werte ist ABSICHT: H5P bringt eigene,
+     teils sehr spezifische Styles mit – ohne !important gewinnt oft H5P.
+   - Farben:  #ff0000 (Hex), rgb(255,0,0) oder Namen wie red, darkblue
+   - Größen:  px (Pixel), % (Prozent), em/rem (relativ zur Schriftgröße)
+   - Die Grundeinstellungen (Ränder, Breite, Schrift, 4 Farben) kannst du
+     bequemer über die Formularfelder des Converters setzen – diese Datei
+     ist für alles, was darüber hinausgeht, und übersteuert im Zweifel
+     die Formularfelder (sie wird zuletzt angewendet).
+   - Achtung: Innerhalb eines auskommentierten Blocks dürfen KEINE
+     weiteren Kommentare stehen (CSS-Kommentare sind nicht
+     verschachtelbar).
+
+   EIGENE SELEKTOREN FINDEN (wenn hier etwas fehlt)
+   ------------------------------------------------
+   Konvertierte HTML-Datei im Browser öffnen → Taste F12 → mit dem
+   Pfeil-Werkzeug (oben links im Entwicklerfenster) auf das Element
+   klicken → im „Elements"-Bereich die class="…" ablesen und hier als
+   Selektor verwenden (Punkt davor: class="h5p-answer" → .h5p-answer).
+   ========================================================================== */
+
+
+/* ==========================================================================
+   A) SEITE & LAYOUT
+   (Beim HTML5-Paket wirken diese Regeln nur teilweise, weil der Inhalt
+   dort in einem eigenen Rahmen (iframe) läuft – Ränder/Breite fürs Paket
+   besser über die Formularfelder setzen.)
+   ========================================================================== */
+
+/* Hintergrund der gesamten Seite um den Inhalt herum */
+/*
+body {
+    background: #f0f0f0 !important;
+}
+*/
+
+/* Abstand der Seite zum Inhalt – Reihenfolge: oben rechts unten links */
+/*
+body {
+    padding: 40px 20px 40px 20px !important;
+}
+*/
+
+/* Breite des Inhalts (px oder %, z. B. 90%) und horizontal zentrieren */
+/*
+.h5p-content {
+    width: 800px !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+*/
+
+/* Rahmen, abgerundete Ecken und Schatten um den Inhalt.
+   „overflow: hidden" sorgt dafür, dass die Ecken sauber abgeschnitten werden. */
+/*
+.h5p-content {
+    border: 2px solid #cccccc !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+    overflow: hidden !important;
+}
+*/
+
+
+/* ==========================================================================
+   B) SCHRIFT & TEXT
+   ========================================================================== */
+
+/* Schriftart für alle Texte (Icon-Schriften absichtlich ausgenommen) */
+/*
+body, .h5p-content, p, h1, h2, h3, h4, h5, h6, li, td, th, label, input, select, textarea {
+    font-family: Verdana, sans-serif !important;
+}
+*/
+
+/* Grund-Schriftgröße (die meisten H5P-Texte skalieren mit) */
+/*
+.h5p-content {
+    font-size: 18px !important;
+}
+*/
+
+/* Textfarbe */
+/*
+.h5p-content, .h5p-content p, .h5p-content li, .h5p-content h2, .h5p-content h3 {
+    color: #222222 !important;
+}
+*/
+
+/* Zeilenabstand */
+/*
+.h5p-content p, .h5p-content li {
+    line-height: 1.6 !important;
+}
+*/
+
+/* Überschriften separat (Größe, Farbe, Abstand) */
+/*
+.h5p-content h2 {
+    font-size: 28px !important;
+    color: #1a3c6e !important;
+    margin-bottom: 12px !important;
+}
+.h5p-content h3 {
+    font-size: 22px !important;
+    color: #1a3c6e !important;
+}
+*/
+
+/* Aufgabenstellung / Einleitungstext von Fragen */
+/*
+.h5p-question-introduction, .h5p-question-introduction p {
+    font-size: 20px !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+}
+*/
+
+
+/* ==========================================================================
+   C) BEDIENELEMENTE: BUTTONS, LINKS, LEISTEN
+   ========================================================================== */
+
+/* Standard-Buttons („Überprüfen", „Wiederholen", „Lösung anzeigen" …).
+   background-color = Knopffarbe, color = Beschriftung,
+   border-radius = Eckenrundung. „background-image: none" entfernt
+   den blauen H5P-Farbverlauf, der sonst die Farbe überdeckt. */
+/*
+.h5p-joubelui-button {
+    background-color: #2a6df4 !important;
+    background-image: none !important;
+    border-color: #2a6df4 !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    font-size: 16px !important;
+}
+*/
+
+/* Buttons beim Darüberfahren mit der Maus */
+/*
+.h5p-joubelui-button:hover, .h5p-joubelui-button:focus {
+    background-color: #1c50b8 !important;
+    background-image: none !important;
+}
+*/
+
+/* Links im Inhalt */
+/*
+.h5p-content a {
+    color: #2a6df4 !important;
+    text-decoration: underline !important;
+}
+*/
+
+/* Punkte-/Ergebnisleiste (nach dem Überprüfen) */
+/*
+.h5p-joubelui-score-bar-progress {
+    background-color: #2a6df4 !important;
+    background-image: none !important;
+}
+*/
+
+/* Feedback-Text nach dem Überprüfen („3 von 4 Punkten") */
+/*
+.h5p-question-feedback, .h5p-question-feedback-content {
+    color: #222222 !important;
+    font-size: 16px !important;
+}
+*/
+
+
+/* ==========================================================================
+   D) BILDER & MEDIEN
+   ========================================================================== */
+
+/* Abgerundete Ecken / Rahmen für Bilder */
+/*
+.h5p-content img {
+    border-radius: 8px !important;
+    border: 1px solid #dddddd !important;
+}
+*/
+
+
+/* ==========================================================================
+   E) AUFGABENTYP-SPEZIFISCH
+   Diese Abschnitte wirken nur, wenn der jeweilige Inhaltstyp in der Datei
+   vorkommt – sie stören also nie. Eine einzige Vorlage genügt für alle Typen.
+   ========================================================================== */
+
+/* ----- Course Presentation (Präsentation) --------------------------------- */
+
+/* Hintergrund der Folien */
+/*
+.h5p-presentation-wrapper, .h5p-slide {
+    background: #ffffff !important;
+}
+*/
+
+/* Fortschrittsbalken: erledigte Folien / aktuelle Folie */
+/*
+.h5p-progressbar .h5p-progressbar-part-show,
+.h5p-progressbar .h5p-progressbar-part-selected {
+    background-color: #2a6df4 !important;
+    background-image: none !important;
+}
+*/
+
+/* Fußleiste (Foliennummer, Navigation) */
+/*
+.h5p-footer {
+    background: #ffffff !important;
+    color: #333333 !important;
+}
+*/
+
+/* ----- Multiple Choice / Single Choice (Auswahlfragen) --------------------- */
+
+/* Antwortfelder (noch nicht beantwortet) */
+/*
+.h5p-multichoice .h5p-answer, .h5p-sc-alternative {
+    background: #f5f7fa !important;
+    border-radius: 8px !important;
+    font-size: 17px !important;
+}
+*/
+
+/* Richtig beantwortete Antwort (Standard: grün) */
+/*
+.h5p-multichoice .h5p-answer.h5p-correct {
+    background: #d4edda !important;
+    color: #155724 !important;
+}
+*/
+
+/* Falsch beantwortete Antwort (Standard: rot) */
+/*
+.h5p-multichoice .h5p-answer.h5p-wrong {
+    background: #f8d7da !important;
+    color: #721c24 !important;
+}
+*/
+
+/* ----- True/False (Richtig/Falsch) ----------------------------------------- */
+
+/*
+.h5p-true-false-answer {
+    background: #f5f7fa !important;
+    border-radius: 8px !important;
+    font-size: 17px !important;
+}
+*/
+
+/* ----- Fill in the Blanks (Lückentext) ------------------------------------- */
+
+/* Eingabefelder für die Lücken */
+/*
+.h5p-blanks .h5p-text-input {
+    border: 2px solid #2a6df4 !important;
+    border-radius: 6px !important;
+    font-size: 17px !important;
+}
+*/
+
+/* Richtige / falsche Lücken nach dem Überprüfen */
+/*
+.h5p-blanks .h5p-correct { background: #d4edda !important; }
+.h5p-blanks .h5p-wrong   { background: #f8d7da !important; }
+*/
+
+/* ----- Drag and Drop / Drag the Words -------------------------------------- */
+
+/* Ziehbare Elemente */
+/*
+.h5p-draggable, .ui-draggable {
+    background: #e8f0fe !important;
+    border: 1px solid #2a6df4 !important;
+    border-radius: 6px !important;
+}
+*/
+
+/* Ablagezonen */
+/*
+.h5p-dropzone, .ui-droppable {
+    border: 2px dashed #999999 !important;
+}
+*/
+
+/* ----- Interactive Video ---------------------------------------------------- */
+
+/* Steuerleiste unten (Play, Lautstärke …) */
+/*
+.h5p-interactive-video .h5p-controls {
+    background: rgba(0, 0, 0, 0.8) !important;
+}
+*/
+
+/* ----- Accordion ------------------------------------------------------------ */
+
+/* Titelzeilen der Aufklapp-Abschnitte */
+/*
+.h5p-accordion .h5p-panel-title {
+    background: #f0f4fa !important;
+    color: #1a3c6e !important;
+    font-size: 18px !important;
+}
+*/
+
+/* ----- Dialog Cards (Lernkarten) -------------------------------------------- */
+
+/*
+.h5p-dialogcards-card-content {
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    font-size: 18px !important;
+}
+*/
+
+/* ----- Question Set / Quiz (Fragenserie) ------------------------------------ */
+
+/* Fortschrittspunkte zwischen den Fragen */
+/*
+.h5p-qs-progress-dot { background: #cccccc !important; }
+.h5p-qs-progress-dot.h5p-qs-progress-dot-current { background: #2a6df4 !important; }
+*/
+
+
+/* ==========================================================================
+   F) PLATZ FÜR EIGENE REGELN
+   Hier kannst du Regeln für Klassen ergänzen, die du per F12 gefunden
+   hast (Anleitung siehe ganz oben).
+   ========================================================================== */
