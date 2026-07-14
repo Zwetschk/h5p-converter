@@ -78,6 +78,30 @@ wirkt bewusst nicht auf Icon-Schriften und kann von einzelnen Inhaltstypen
 mit sehr spezifischem CSS übersteuert werden – dafür gibt es das Feld
 „Eigenes CSS".
 
+## Design-Editor: fertige Dateien nachträglich anpassen
+
+Unter <http://localhost:3300/styler.html> (Link auch auf der Startseite) lassen
+sich **bereits konvertierte** All-in-one-HTML-Dateien und HTML5-Pakete (.zip)
+nachträglich umgestalten – auch solche, die nicht mit diesem Converter erzeugt
+wurden:
+
+1. **Datei laden** (Drag & Drop): .html oder .zip-Paket.
+2. **Automatische Analyse**: verwendete Schriften, Text-/Hintergrundfarben und
+   Gruppen gleichartiger Elemente (z. B. `button.h5p-joubelui-button`,
+   `li.h5p-answer`) werden aufgelistet.
+3. **Anpassen mit Live-Vorschau**: Ränder (px), Breite (px/%), Schriftart und
+   -größe, Seiten-/Inhalts-/Text-/Akzentfarbe, eigenes CSS – sowie je
+   Element-Gruppe Textfarbe, Hintergrund, Schriftgröße und Breite. Über
+   **„Element auswählen"** kann ein Element direkt in der Vorschau angeklickt
+   werden.
+4. **Herunterladen**: Die Anpassungen werden als gekennzeichneter CSS-Block in
+   die HTML-Datei geschrieben (bei Paketen in die `index.html` im ZIP). Eine so
+   bearbeitete Datei kann später erneut geladen werden – die Einstellungen
+   erscheinen dann wieder im Editor und lassen sich weiter verfeinern.
+
+Bei HTML5-Paketen sorgt ein kleines mitgeliefertes Skript dafür, dass die
+Anpassungen auch in das H5P-iframe des Players übernommen werden.
+
 ## Projektstruktur
 
 ```
@@ -85,7 +109,9 @@ scripts/setup.js    einmaliger Download der H5P-Core-/Editor-Dateien
 src/converter.js    Kernlogik (beide Konvertierungen)
 src/cli.js          Kommandozeilen-Interface
 src/server.js       lokale Web-Oberfläche (Express, Port 3300)
+src/styler.js       Design-Editor-API (Sitzungen, Vorschau, Export)
 public/index.html   Browser-UI (Drag & Drop)
+public/styler.html  Design-Editor-UI (Analyse + Live-Vorschau)
 vendor/             H5P-Core-/Editor-Dateien (durch Setup erzeugt)
 test-data/          Beispieldateien und Konvertierungsergebnisse
 ```

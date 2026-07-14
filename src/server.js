@@ -22,6 +22,9 @@ const upload = multer({
 const app = express();
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// Design-Editor: fertige HTML-Dateien/HTML5-Pakete nachträglich anpassen
+app.use('/styler-api', require('./styler'));
+
 app.post('/convert', upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'Keine Datei hochgeladen.' });

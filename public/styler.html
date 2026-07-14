@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Design-Editor – H5P Converter</title>
+    <style>
+        :root {
+            --accent: #2a6df4;
+            --accent-dark: #1c50b8;
+            --border: #d7dce3;
+            --text-dim: #5a6472;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            background: #f2f4f8;
+            color: #1d2530;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 18px;
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        header h1 { font-size: 1.15rem; margin: 0; }
+        header .file-label {
+            font-size: .88rem;
+            color: var(--accent-dark);
+            font-weight: 600;
+            max-width: 320px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        header .spacer { flex: 1; }
+        header a.back { font-size: .88rem; color: var(--text-dim); text-decoration: none; }
+        header a.back:hover { color: var(--accent-dark); }
+        button {
+            font: inherit;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: #1d2530;
+            border-radius: 8px;
+            padding: 7px 13px;
+            cursor: pointer;
+            font-size: .88rem;
+        }
+        button:hover:enabled { border-color: var(--accent); color: var(--accent-dark); }
+        button:disabled { opacity: .45; cursor: not-allowed; }
+        button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+        button.primary:hover:enabled { background: var(--accent-dark); color: #fff; }
+        button.toggled {
+            background: #fdeef3;
+            border-color: #e0245e;
+            color: #b3123f;
+        }
+        #main {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+        }
+        #sidebar {
+            width: 400px;
+            min-width: 320px;
+            background: #fff;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 14px 16px 40px;
+        }
+        #preview-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: #e4e8ee;
+        }
+        #preview-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 14px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border);
+            font-size: .85rem;
+            color: var(--text-dim);
+        }
+        #preview-toolbar select {
+            font: inherit;
+            padding: 4px 6px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        #preview-wrap {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            padding: 0;
+        }
+        #preview {
+            border: none;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            display: none;
+        }
+        #preview-empty {
+            margin: auto;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: .95rem;
+            padding: 30px;
+            line-height: 1.6;
+        }
+        #dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 20px 12px;
+            text-align: center;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: .9rem;
+            transition: border-color .15s, background .15s;
+        }
+        #dropzone.dragover { border-color: var(--accent); background: #eef3fe; }
+        #dropzone strong { color: #1d2530; }
+        #status { margin-top: 8px; min-height: 20px; font-size: .88rem; }
+        #status.error { color: #b3261e; }
+        #status.ok { color: #1a7f37; }
+        details.section {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-top: 12px;
+        }
+        details.section > summary {
+            font-weight: 600;
+            cursor: pointer;
+            font-size: .95rem;
+            user-select: none;
+        }
+        details.section .hint { font-size: .8rem; color: var(--text-dim); margin: 6px 0 8px; }
+        label.field { display: block; font-size: .85rem; color: #3a4452; margin-top: 8px; }
+        input[type=number], input[type=text], select, textarea {
+            width: 100%;
+            margin-top: 4px;
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            font-size: .9rem;
+            font-family: inherit;
+        }
+        textarea { font-family: Consolas, monospace; min-height: 90px; resize: vertical; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+        .margin-row { display: flex; gap: 6px; margin-top: 4px; }
+        .margin-row input { margin-top: 0; }
+        .color-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .85rem;
+            color: #3a4452;
+            margin-top: 8px;
+        }
+        .color-row input[type=color] {
+            width: 38px; height: 26px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1px;
+            background: #fff;
+            flex: none;
+        }
+        .color-row input[type=checkbox] { margin: 0; flex: none; }
+        .swatches { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+        .swatch {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: .75rem;
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 2px 6px 2px 2px;
+            background: #fafbfc;
+        }
+        .swatch i {
+            width: 18px; height: 18px;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,.15);
+            display: inline-block;
+        }
+        .font-list { font-size: .82rem; color: #3a4452; margin: 6px 0 2px; padding-left: 18px; }
+        .font-list li { margin-bottom: 2px; }
+        #group-search { margin-bottom: 8px; }
+        .group {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            overflow: hidden;
+        }
+        .group.has-rule { border-color: var(--accent); }
+        .group-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 9px;
+            cursor: pointer;
+            background: #fafbfc;
+        }
+        .group-head:hover { background: #eef3fe; }
+        .group-head code {
+            font-size: .78rem;
+            color: #1c50b8;
+            word-break: break-all;
+            flex: 1;
+        }
+        .group-head .badge {
+            font-size: .72rem;
+            background: #e8ecf3;
+            color: var(--text-dim);
+            border-radius: 10px;
+            padding: 1px 7px;
+            flex: none;
+        }
+        .group-head .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--accent);
+            flex: none;
+            visibility: hidden;
+        }
+        .group.has-rule .dot { visibility: visible; }
+        .group-snippet {
+            font-size: .75rem;
+            color: var(--text-dim);
+            padding: 0 9px 6px;
+            background: #fafbfc;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .group-body { padding: 4px 10px 10px; border-top: 1px solid var(--border); display: none; }
+        .group.open .group-body { display: block; }
+        .group-body .grid2 input { margin-top: 2px; }
+        .flash { animation: flash 1.2s ease-out; }
+        @keyframes flash {
+            0% { box-shadow: 0 0 0 3px #e0245e66; }
+            100% { box-shadow: none; }
+        }
+        .side-note { font-size: .78rem; color: var(--text-dim); margin-top: 14px; line-height: 1.5; }
+        @media (max-width: 800px) {
+            #main { flex-direction: column; }
+            #sidebar { width: 100%; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--border); }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Design-Editor</h1>
+    <span class="file-label" id="file-label"></span>
+    <span class="spacer"></span>
+    <button id="pick-btn" disabled title="Element in der Vorschau anklicken, um es anzupassen">&#127919; Element auswählen</button>
+    <button id="analyze-btn" disabled>Neu analysieren</button>
+    <button id="reset-btn" disabled>Zurücksetzen</button>
+    <button id="export-btn" class="primary" disabled>Herunterladen</button>
+    <a class="back" href="index.html">&larr; zum Converter</a>
+</header>
+<div id="main">
+    <aside id="sidebar">
+        <div id="dropzone">
+            <strong>HTML-Datei oder HTML5-Paket (.zip) hierher ziehen</strong><br>
+            oder klicken zum Auswählen
+        </div>
+        <input type="file" id="file-input" accept=".html,.htm,.zip" hidden>
+        <div id="status"></div>
+
+        <details class="section" id="sec-analysis">
+            <summary>Analyse: gefundene Schriften &amp; Farben</summary>
+            <p class="hint">Wird nach dem Laden der Datei automatisch ermittelt. Nach Interaktionen im Inhalt lohnt sich „Neu analysieren“.</p>
+            <div id="analysis-out"><p class="hint">Noch keine Datei geladen.</p></div>
+        </details>
+
+        <details class="section" open>
+            <summary>Ränder &amp; Breite</summary>
+            <label class="field">Ränder in px (oben / rechts / unten / links)</label>
+            <div class="margin-row">
+                <input type="number" id="m-top" min="0" max="2000" placeholder="oben">
+                <input type="number" id="m-right" min="0" max="2000" placeholder="rechts">
+                <input type="number" id="m-bottom" min="0" max="2000" placeholder="unten">
+                <input type="number" id="m-left" min="0" max="2000" placeholder="links">
+            </div>
+            <label class="field">Breite des Inhalts (z.&nbsp;B. <code>800px</code> oder <code>90%</code>)
+                <input type="text" id="width" placeholder="unverändert">
+            </label>
+        </details>
+
+        <details class="section" open>
+            <summary>Schrift</summary>
+            <div class="grid2">
+                <label class="field">Schriftart
+                    <select id="font">
+                        <option value="">unverändert</option>
+                        <option value="Arial">Arial / Helvetica</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Tahoma">Tahoma</option>
+                        <option value="'Trebuchet MS'">Trebuchet MS</option>
+                        <option value="'Segoe UI'">Segoe UI</option>
+                        <option value="system-ui">Systemschrift</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="'Times New Roman'">Times New Roman</option>
+                        <option value="'Courier New'">Courier New (Monospace)</option>
+                        <option value="'Comic Sans MS'">Comic Sans MS</option>
+                        <option value="__custom__">Eigene Schrift eingeben …</option>
+                    </select>
+                </label>
+                <label class="field">Grundschriftgröße (px)
+                    <input type="number" id="font-size" min="6" max="80" placeholder="unverändert">
+                </label>
+            </div>
+            <input type="text" id="font-custom" placeholder="Name der Schriftart" style="display:none; margin-top:6px;">
+        </details>
+
+        <details class="section" open>
+            <summary>Farben (gesamt)</summary>
+            <label class="color-row"><input type="checkbox" id="c-page-on"><input type="color" id="c-page" value="#f5f5f5"> Seitenhintergrund</label>
+            <label class="color-row"><input type="checkbox" id="c-content-on"><input type="color" id="c-content" value="#ffffff"> Inhalts-Hintergrund</label>
+            <label class="color-row"><input type="checkbox" id="c-text-on"><input type="color" id="c-text" value="#1d2530"> Textfarbe</label>
+            <label class="color-row"><input type="checkbox" id="c-accent-on"><input type="color" id="c-accent" value="#2a6df4"> Akzentfarbe (Buttons &amp; Links)</label>
+        </details>
+
+        <details class="section" id="sec-elements" open>
+            <summary>Einzelne Elemente anpassen</summary>
+            <p class="hint">Gruppen gleichartiger Elemente aus der Analyse. Anklicken zum Aufklappen – oder oben
+                „Element auswählen“ nutzen und direkt in der Vorschau klicken.</p>
+            <input type="text" id="group-search" placeholder="Filtern, z. B. button oder h5p-question …">
+            <div id="group-list"><p class="hint">Noch keine Datei geladen.</p></div>
+        </details>
+
+        <details class="section">
+            <summary>Eigenes CSS</summary>
+            <p class="hint">Wird zusätzlich zu allen Einstellungen angewendet.</p>
+            <textarea id="custom-css" placeholder=".h5p-content { border-radius: 12px; }"></textarea>
+        </details>
+
+        <p class="side-note">
+            Die Anpassungen werden beim Herunterladen als gekennzeichneter CSS-Block in die
+            HTML-Datei geschrieben. Eine so bearbeitete Datei kann später erneut geladen
+            werden – die Einstellungen erscheinen dann wieder im Editor.
+        </p>
+    </aside>
+
+    <section id="preview-area">
+        <div id="preview-toolbar">
+            <span>Vorschau</span>
+            <select id="preview-width">
+                <option value="">volle Breite</option>
+                <option value="1024px">1024 px</option>
+                <option value="768px">768 px (Tablet)</option>
+                <option value="375px">375 px (Smartphone)</option>
+            </select>
+            <button id="reload-btn" disabled>Neu laden</button>
+        </div>
+        <div id="preview-wrap">
+            <iframe id="preview" title="Vorschau"></iframe>
+            <div id="preview-empty">
+                <strong>So funktioniert es</strong><br>
+                1. Links eine All-in-one-HTML-Datei oder ein HTML5-Paket (.zip) laden.<br>
+                2. Die Datei wird analysiert; Schriften, Farben und Element-Gruppen erscheinen links.<br>
+                3. Werte ändern – die Vorschau aktualisiert sich sofort.<br>
+                4. „Herunterladen“ speichert die angepasste Datei.
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    var $ = function (id) { return document.getElementById(id); };
+
+    /* ------------------------------------------------------------ */
+    /* Zustand                                                       */
+    /* ------------------------------------------------------------ */
+    var session = null;        // { id, type, entry, name }
+    var groups = new Map();    // Selektor -> Gruppendaten
+    var elementRules = {};     // Selektor -> { color, background, fontSize, width }
+    var pickerHandlers = [];
+    var pickerActive = false;
+    var lastHighlight = null;
+    var analyzeTimer = null;
+
+    var TEXT_SELECTORS = 'body, .h5p-content, p, h1, h2, h3, h4, h5, h6, li, ul, ol, td, th, ' +
+        'dd, dt, label, legend, figcaption, blockquote, input, select, textarea';
+    var CANDIDATE_SELECTOR = 'h1,h2,h3,h4,h5,h6,p,li,a,button,label,legend,td,th,' +
+        'figcaption,blockquote,img,input,select,textarea,[class*="h5p-"]';
+    var STATE_RE = /(active|current|focus|hover|selected|disabled|open|visible|hidden|show|hide|transition|animat|dragging|answered|correct|wrong|pressed|expanded|collaps)/i;
+
+    /* ------------------------------------------------------------ */
+    /* Hilfsfunktionen                                               */
+    /* ------------------------------------------------------------ */
+    function setStatus(text, cls) {
+        var s = $('status');
+        s.textContent = text || '';
+        s.className = cls || '';
+    }
+    function cleanValue(v, max) {
+        return String(v == null ? '' : v).replace(/[;{}<>]/g, '').trim().slice(0, max || 120);
+    }
+    function cleanWidth(v) {
+        var m = /^([0-9]{1,4})\s*(px|%)?$/.exec(String(v || '').trim());
+        if (!m) return null;
+        var n = parseInt(m[1], 10);
+        var unit = m[2] || 'px';
+        if (unit === '%' && (n < 1 || n > 100)) return null;
+        if (unit === 'px' && (n < 1 || n > 4000)) return null;
+        return n + unit;
+    }
+    function numOrNull(id, min, max) {
+        var v = $(id).value;
+        if (v === '') return null;
+        var n = parseInt(v, 10);
+        if (isNaN(n)) return null;
+        return Math.min(Math.max(n, min), max);
+    }
+    function colorOrNull(id) {
+        return $(id + '-on').checked ? $(id).value : null;
+    }
+    function rgbToHex(rgb) {
+        var m = /^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(rgb || '');
+        if (!m) return null;
+        var hex = '#';
+        for (var i = 1; i <= 3; i++) {
+            var h = parseInt(m[i], 10).toString(16);
+            hex += h.length === 1 ? '0' + h : h;
+        }
+        return hex;
+    }
+    function isTransparent(rgb) {
+        return !rgb || rgb === 'transparent' || /^rgba\(.*,\s*0\)$/.test(rgb);
+    }
+
+    /* ------------------------------------------------------------ */
+    /* Einstellungen sammeln / anwenden                              */
+    /* ------------------------------------------------------------ */
+    function currentFont() {
+        var f = $('font').value;
+        if (f === '__custom__') f = cleanValue($('font-custom').value);
+        return f || null;
+    }
+    function collectSettings() {
+        return {
+            marginTop: numOrNull('m-top', 0, 2000),
+            marginRight: numOrNull('m-right', 0, 2000),
+            marginBottom: numOrNull('m-bottom', 0, 2000),
+            marginLeft: numOrNull('m-left', 0, 2000),
+            width: cleanWidth($('width').value),
+            font: currentFont(),
+            fontSize: numOrNull('font-size', 6, 80),
+            colorPage: colorOrNull('c-page'),
+            colorContent: colorOrNull('c-content'),
+            colorText: colorOrNull('c-text'),
+            colorAccent: colorOrNull('c-accent'),
+            customCss: $('custom-css').value.trim() || null,
+            elementRules: elementRules
+        };
+    }
+    function applySettingsToUI(s) {
+        if (!s || typeof s !== 'object') return;
+        var setNum = function (id, v) { $(id).value = (v == null ? '' : v); };
+        setNum('m-top', s.marginTop); setNum('m-right', s.marginRight);
+        setNum('m-bottom', s.marginBottom); setNum('m-left', s.marginLeft);
+        $('width').value = s.width || '';
+        setNum('font-size', s.fontSize);
+        if (s.font) {
+            var opt = Array.prototype.find.call($('font').options, function (o) { return o.value === s.font; });
+            if (opt) { $('font').value = s.font; $('font-custom').style.display = 'none'; }
+            else { $('font').value = '__custom__'; $('font-custom').value = s.font; $('font-custom').style.display = 'block'; }
+        }
+        var setColor = function (id, v) {
+            $(id + '-on').checked = !!v;
+            if (v && /^#[0-9a-fA-F]{6}$/.test(v)) $(id).value = v;
+        };
+        setColor('c-page', s.colorPage); setColor('c-content', s.colorContent);
+        setColor('c-text', s.colorText); setColor('c-accent', s.colorAccent);
+        $('custom-css').value = s.customCss || '';
+        elementRules = (s.elementRules && typeof s.elementRules === 'object') ? s.elementRules : {};
+    }
+    function resetSettings() {
+        ['m-top', 'm-right', 'm-bottom', 'm-left', 'width', 'font-size', 'font-custom', 'custom-css', 'group-search']
+            .forEach(function (id) { $(id).value = ''; });
+        $('font').value = '';
+        $('font-custom').style.display = 'none';
+        ['c-page', 'c-content', 'c-text', 'c-accent'].forEach(function (id) { $(id + '-on').checked = false; });
+        elementRules = {};
+        renderGroups();
+        applyStyles();
+    }
+
+    /* ------------------------------------------------------------ */
+    /* CSS erzeugen (gespiegelt zur Server-Logik des Converters)     */
+    /* ------------------------------------------------------------ */
+    function buildLayoutCss() {
+        var s = collectSettings();
+        var rules = [];
+        var margins = [s.marginTop, s.marginRight, s.marginBottom, s.marginLeft];
+        if (margins.some(function (m) { return m !== null; })) {
+            var vals = margins.map(function (m) { return (m == null ? 0 : m) + 'px'; }).join(' ');
+            rules.push('body { margin: 0 !important; padding: ' + vals + ' !important; box-sizing: border-box; }');
+            rules.push('.wrapper { padding: 0 !important; }');
+        }
+        if (s.width) {
+            rules.push('.h5p-content, #h5p-container, .h5p-iframe-wrapper { width: ' + s.width +
+                ' !important; max-width: 100% !important; margin-left: auto !important; margin-right: auto !important; }');
+            rules.push('.wrapper { max-width: none !important; }');
+        }
+        if (s.colorPage) {
+            rules.push('html, body { background: ' + s.colorPage + ' !important; }');
+        }
+        return rules.join('\n');
+    }
+    function buildThemeCss() {
+        var s = collectSettings();
+        var rules = [];
+        if (s.font) {
+            rules.push(TEXT_SELECTORS + ' { font-family: ' + s.font + ', sans-serif !important; }');
+        }
+        if (s.fontSize) {
+            rules.push('body, .h5p-content { font-size: ' + s.fontSize + 'px !important; }');
+        }
+        if (s.colorText) {
+            rules.push(TEXT_SELECTORS + ' { color: ' + s.colorText + ' !important; }');
+        }
+        if (s.colorContent) {
+            rules.push('.h5p-content { background: ' + s.colorContent + ' !important; }');
+        }
+        if (s.colorAccent) {
+            rules.push('.h5p-joubelui-button { background-color: ' + s.colorAccent + ' !important; border-color: ' +
+                s.colorAccent + ' !important; background-image: none !important; }');
+            rules.push('.h5p-joubelui-button:hover, .h5p-joubelui-button:focus { filter: brightness(0.9); }');
+            rules.push('a { color: ' + s.colorAccent + ' !important; }');
+            rules.push('.h5p-joubelui-progressbar-background, .h5p-progressbar .h5p-progressbar-part-show, ' +
+                '.h5p-progressbar .h5p-progressbar-part-selected { background-color: ' + s.colorAccent +
+                ' !important; background-image: none !important; }');
+        }
+        Object.keys(elementRules).forEach(function (sel) {
+            var r = elementRules[sel];
+            var decls = [];
+            if (r.color) decls.push('color: ' + r.color + ' !important');
+            if (r.background) decls.push('background: ' + r.background + ' !important');
+            if (r.fontSize) decls.push('font-size: ' + r.fontSize + 'px !important');
+            if (r.width) decls.push('width: ' + r.width + ' !important; max-width: 100% !important');
+            if (decls.length) {
+                rules.push('/* Element-Regel */\n' + sel + ' { ' + decls.join('; ') + '; }');
+            }
+        });
+        if (s.customCss) {
+            rules.push('/* Eigenes CSS */\n' + s.customCss);
+        }
+        return rules.join('\n');
+    }
+
+    /* ------------------------------------------------------------ */
+    /* Vorschau: Dokumente einsammeln, Styles injizieren             */
+    /* ------------------------------------------------------------ */
+    function collectDocs() {
+        var docs = [];
+        var top = $('preview').contentWindow;
+        if (!top) return docs;
+        (function walk(win, isTop) {
+            var doc;
+            try { doc = win.document; } catch (e) { return; }
+            if (!doc || !doc.documentElement) return;
+            docs.push({ win: win, doc: doc, top: isTop });
+            for (var i = 0; i < win.frames.length; i++) walk(win.frames[i], false);
+        })(top, true);
+        return docs;
+    }
+    function setStyleEl(doc, id, css) {
+        var el = doc.getElementById(id);
+        if (!el) {
+            el = doc.createElement('style');
+            el.id = id;
+            (doc.head || doc.documentElement).appendChild(el);
+        }
+        if (el.textContent !== css) el.textContent = css;
+    }
+    function applyStyles() {
+        if (!session) return;
+        var layout = buildLayoutCss();
+        var theme = buildThemeCss();
+        collectDocs().forEach(function (d) {
+            try {
+                setStyleEl(d.doc, 'h5p-styler-live-layout', d.top ? layout : '');
+                setStyleEl(d.doc, 'h5p-styler-live-theme', theme);
+            } catch (e) { /* Frame gerade im Umbau */ }
+        });
+    }
+    setInterval(applyStyles, 900); // fängt neu erzeugte H5P-iframes ein
+
+    /* ------------------------------------------------------------ */
+    /* Analyse                                                       */
+    /* ------------------------------------------------------------ */
+    function buildSelector(node) {
+        var tag = node.tagName.toLowerCase();
+        if (tag === 'html' || tag === 'body') return tag;
+        var classes = Array.prototype.filter.call(node.classList, function (c) {
+            return c.length <= 40 && /^[A-Za-z][A-Za-z0-9_-]*$/.test(c) && !STATE_RE.test(c);
+        });
+        var h5p = classes.filter(function (c) { return c.indexOf('h5p-') === 0; });
+        var pick = (h5p.length ? h5p : classes).slice(0, 2);
+        return tag + pick.map(function (c) { return '.' + c; }).join('');
+    }
+    function makeGroupFromNode(node) {
+        var view = node.ownerDocument.defaultView;
+        var cs = view.getComputedStyle(node);
+        return {
+            selector: buildSelector(node),
+            count: 0,
+            snippet: (node.tagName === 'IMG'
+                ? (node.getAttribute('alt') || node.getAttribute('src') || 'Bild')
+                : (node.textContent || '')).trim().replace(/\s+/g, ' ').slice(0, 70),
+            color: cs.color,
+            background: cs.backgroundColor,
+            fontSize: cs.fontSize
+        };
+    }
+    function tally(map, key, weight) {
+        if (!key) return;
+        map.set(key, (map.get(key) || 0) + (weight || 1));
+    }
+    function analyze() {
+        if (!session) return;
+        groups = new Map();
+        var fonts = new Map(), textColors = new Map(), bgColors = new Map();
+        var inspected = 0, styled = 0;
+        collectDocs().forEach(function (d) {
+            var nodes;
+            try { nodes = d.doc.querySelectorAll(CANDIDATE_SELECTOR); } catch (e) { return; }
+            for (var i = 0; i < nodes.length && inspected < 5000; i++) {
+                var node = nodes[i];
+                if (!node.offsetWidth && !node.offsetHeight) continue;
+                inspected++;
+                var sel = buildSelector(node);
+                var g = groups.get(sel);
+                if (!g) {
+                    g = makeGroupFromNode(node);
+                    groups.set(sel, g);
+                }
+                g.count++;
+                if (styled < 1500) {
+                    styled++;
+                    var cs = d.win.getComputedStyle(node);
+                    var fam = (cs.fontFamily || '').split(',')[0].replace(/["']/g, '').trim();
+                    if ((node.textContent || '').trim()) {
+                        tally(fonts, fam);
+                        tally(textColors, cs.color);
+                    }
+                    if (!isTransparent(cs.backgroundColor)) tally(bgColors, cs.backgroundColor);
+                }
+            }
+        });
+        renderAnalysis(fonts, textColors, bgColors);
+        renderGroups();
+        var n = groups.size;
+        setStatus(n ? 'Analyse: ' + n + ' Element-Gruppen gefunden.' : 'Analyse: keine sichtbaren Elemente gefunden – ggf. „Neu analysieren“, sobald der Inhalt geladen ist.', n ? 'ok' : '');
+    }
+    function renderAnalysis(fonts, textColors, bgColors) {
+        var out = $('analysis-out');
+        out.innerHTML = '';
+        var sortDesc = function (map) {
+            return Array.from(map.entries()).sort(function (a, b) { return b[1] - a[1]; });
+        };
+        var fontArr = sortDesc(fonts).slice(0, 6);
+        if (fontArr.length) {
+            var h = document.createElement('div');
+            h.innerHTML = '<strong style="font-size:.85rem">Schriften</strong>';
+            var ul = document.createElement('ul');
+            ul.className = 'font-list';
+            fontArr.forEach(function (f) {
+                var li = document.createElement('li');
+                li.textContent = f[0] + ' (' + f[1] + ' Elemente)';
+                ul.appendChild(li);
+            });
+            out.appendChild(h); out.appendChild(ul);
+        }
+        var addSwatches = function (title, arr) {
+            if (!arr.length) return;
+            var h = document.createElement('div');
+            h.innerHTML = '<strong style="font-size:.85rem">' + title + '</strong>';
+            var wrap = document.createElement('div');
+            wrap.className = 'swatches';
+            arr.forEach(function (c) {
+                var hex = rgbToHex(c[0]) || c[0];
+                var sw = document.createElement('span');
+                sw.className = 'swatch';
+                sw.title = c[1] + ' Elemente';
+                var i = document.createElement('i');
+                i.style.background = c[0];
+                sw.appendChild(i);
+                sw.appendChild(document.createTextNode(hex));
+                wrap.appendChild(sw);
+            });
+            out.appendChild(h); out.appendChild(wrap);
+        };
+        addSwatches('Textfarben', sortDesc(textColors).slice(0, 8));
+        addSwatches('Hintergrundfarben', sortDesc(bgColors).slice(0, 8));
+        if (!out.childNodes.length) {
+            out.innerHTML = '<p class="hint">Nichts gefunden – ggf. „Neu analysieren“, sobald der Inhalt sichtbar ist.</p>';
+        }
+        // Gefundene Schriften als Auswahl anbieten
+        var sel = $('font');
+        var og = sel.querySelector('optgroup');
+        if (og) og.remove();
+        if (fontArr.length) {
+            og = document.createElement('optgroup');
+            og.label = 'Im Inhalt gefunden';
+            fontArr.forEach(function (f) {
+                var exists = Array.prototype.some.call(sel.options, function (o) {
+                    return o.value.replace(/'/g, '') === f[0];
+                });
+                if (!exists && f[0]) {
+                    var o = document.createElement('option');
+                    o.value = /\s/.test(f[0]) ? "'" + f[0] + "'" : f[0];
+                    o.textContent = f[0];
+                    og.appendChild(o);
+                }
+            });
+            if (og.childNodes.length) sel.appendChild(og);
+        }
+    }
+
+    /* ------------------------------------------------------------ */
+    /* Element-Gruppen: Liste und Regel-Steuerung                    */
+    /* ------------------------------------------------------------ */
+    function ruleFor(sel) {
+        return elementRules[sel] || null;
+    }
+    function updateRule(sel, patch) {
+        var r = elementRules[sel] || {};
+        Object.keys(patch).forEach(function (k) {
+            if (patch[k] == null || patch[k] === '' || patch[k] === false) delete r[k];
+            else r[k] = patch[k];
+        });
+        if (Object.keys(r).length) elementRules[sel] = r;
+        else delete elementRules[sel];
+        var el = document.querySelector('.group[data-sel="' + CSS.escape(sel) + '"]');
+        if (el) el.classList.toggle('has-rule', !!elementRules[sel]);
+        applyStyles();
+    }
+    function buildGroupBody(g) {
+        var body = document.createElement('div');
+        body.className = 'group-body';
+        var r = ruleFor(g.selector) || {};
+        var mkColor = function (label, key, sample) {
+            var row = document.createElement('label');
+            row.className = 'color-row';
+            var chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.checked = !!r[key];
+            var col = document.createElement('input');
+            col.type = 'color';
+            col.value = (r[key] && /^#[0-9a-fA-F]{6}$/.test(r[key]) ? r[key] : (rgbToHex(sample) || '#333333'));
+            var onChange = function () {
+                var patch = {};
+                patch[key] = chk.checked ? col.value : null;
+                updateRule(g.selector, patch);
+            };
+            chk.addEventListener('change', onChange);
+            col.addEventListener('input', function () { chk.checked = true; onChange(); });
+            row.appendChild(chk); row.appendChild(col);
+            row.appendChild(document.createTextNode(' ' + label));
+            body.appendChild(row);
+        };
+        mkColor('Textfarbe', 'color', g.color);
+        mkColor('Hintergrund', 'background', g.background);
+        var grid = document.createElement('div');
+        grid.className = 'grid2';
+        var mkField = function (label, key, placeholder, isNumber) {
+            var lab = document.createElement('label');
+            lab.className = 'field';
+            lab.appendChild(document.createTextNode(label));
+            var inp = document.createElement('input');
+            inp.type = isNumber ? 'number' : 'text';
+            if (isNumber) { inp.min = 6; inp.max = 200; }
+            inp.placeholder = placeholder;
+            inp.value = r[key] || '';
+            inp.addEventListener('input', function () {
+                var v = inp.value;
+                var patch = {};
+                if (isNumber) {
+                    var n = parseInt(v, 10);
+                    patch[key] = (v !== '' && !isNaN(n)) ? Math.min(Math.max(n, 4), 300) : null;
+                } else {
+                    patch[key] = cleanWidth(v);
+                }
+                updateRule(g.selector, patch);
+            });
+            lab.appendChild(inp);
+            grid.appendChild(lab);
+        };
+        var curSize = parseInt(g.fontSize, 10);
+        mkField('Schriftgröße (px)', 'fontSize', isNaN(curSize) ? 'unverändert' : 'aktuell ' + curSize, true);
+        mkField('Breite (px oder %)', 'width', 'unverändert', false);
+        body.appendChild(grid);
+        return body;
+    }
+    function renderGroups() {
+        var list = $('group-list');
+        list.innerHTML = '';
+        var filter = $('group-search').value.trim().toLowerCase();
+        var arr = Array.from(groups.values());
+        // Gruppen mit aktiver Regel immer anzeigen, auch wenn die Analyse sie
+        // gerade nicht (mehr) findet
+        Object.keys(elementRules).forEach(function (sel) {
+            if (!groups.has(sel)) {
+                arr.push({ selector: sel, count: 0, snippet: '(aktuell nicht in der Vorschau gefunden)', color: '', background: '', fontSize: '' });
+            }
+        });
+        arr.sort(function (a, b) {
+            var ra = elementRules[a.selector] ? 1 : 0;
+            var rb = elementRules[b.selector] ? 1 : 0;
+            return (rb - ra) || (b.count - a.count);
+        });
+        if (filter) {
+            arr = arr.filter(function (g) {
+                return g.selector.toLowerCase().indexOf(filter) !== -1 ||
+                    (g.snippet || '').toLowerCase().indexOf(filter) !== -1;
+            });
+        }
+        if (!arr.length) {
+            list.innerHTML = '<p class="hint">' + (groups.size ? 'Kein Treffer für diesen Filter.' : 'Noch keine Datei geladen.') + '</p>';
+            return;
+        }
+        arr.slice(0, 80).forEach(function (g) {
+            var box = document.createElement('div');
+            box.className = 'group' + (elementRules[g.selector] ? ' has-rule' : '');
+            box.dataset.sel = g.selector;
+            var head = document.createElement('div');
+            head.className = 'group-head';
+            var dot = document.createElement('span'); dot.className = 'dot';
+            var code = document.createElement('code'); code.textContent = g.selector;
+            var badge = document.createElement('span');
+            badge.className = 'badge';
+            badge.textContent = g.count + '×';
+            head.appendChild(dot); head.appendChild(code); head.appendChild(badge);
+            box.appendChild(head);
+            if (g.snippet) {
+                var sn = document.createElement('div');
+                sn.className = 'group-snippet';
+                sn.textContent = '„' + g.snippet + '“';
+                box.appendChild(sn);
+            }
+            head.addEventListener('click', function () {
+                if (box.classList.contains('open')) {
+                    box.classList.remove('open');
+                    return;
+                }
+                if (!box.querySelector('.group-body')) box.appendChild(buildGroupBody(g));
+                box.classList.add('open');
+            });
+            list.appendChild(box);
+        });
+    }
+    function openGroup(sel) {
+        if (!groups.has(sel)) {
+            renderGroups();
+        }
+        $('sec-elements').open = true;
+        $('group-search').value = '';
+        renderGroups();
+        var box = document.querySelector('.group[data-sel="' + CSS.escape(sel) + '"]');
+        if (!box) return;
+        var g = groups.get(sel);
+        if (g && !box.querySelector('.group-body')) box.appendChild(buildGroupBody(g));
+        box.classList.add('open', 'flash');
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(function () { box.classList.remove('flash'); }, 1300);
+    }
+
+    /* ------------------------------------------------------------ */
+    /* Element-Picker (Klick in der Vorschau)                        */
+    /* ------------------------------------------------------------ */
+    function unhighlight() {
+        if (lastHighlight) {
+            try {
+                lastHighlight.node.style.outline = lastHighlight.outline;
+                lastHighlight.node.style.cursor = lastHighlight.cursor;
+            } catch (e) {}
+            lastHighlight = null;
+        }
+    }
+    function highlight(node) {
+        if (lastHighlight && lastHighlight.node === node) return;
+        unhighlight();
+        lastHighlight = { node: node, outline: node.style.outline, cursor: node.style.cursor };
+        node.style.outline = '2px solid #e0245e';
+        node.style.cursor = 'crosshair';
+    }
+    function setPicker(on) {
+        pickerActive = on;
+        $('pick-btn').classList.toggle('toggled', on);
+        $('pick-btn').textContent = on ? 'Klick in die Vorschau … (Esc bricht ab)' : '🎯 Element auswählen';
+        pickerHandlers.forEach(function (h) {
+            try {
+                h.doc.removeEventListener('mouseover', h.over, true);
+                h.doc.removeEventListener('click', h.click, true);
+                h.doc.removeEventListener('keydown', h.key, true);
+            } catch (e) {}
+        });
+        pickerHandlers = [];
+        unhighlight();
+        if (!on) return;
+        collectDocs().forEach(function (d) {
+            var over = function (e) { highlight(e.target); };
+            var click = function (e) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                var node = e.target;
+                var sel = buildSelector(node);
+                if (!groups.has(sel)) {
+                    var g = makeGroupFromNode(node);
+                    try {
+                        g.count = node.ownerDocument.querySelectorAll(sel).length;
+                    } catch (err) { g.count = 1; }
+                    groups.set(sel, g);
+                }
+                setPicker(false);
+                openGroup(sel);
+            };
+            var key = function (e) { if (e.key === 'Escape') setPicker(false); };
+            try {
+                d.doc.addEventListener('mouseover', over, true);
+                d.doc.addEventListener('click', click, true);
+                d.doc.addEventListener('keydown', key, true);
+                pickerHandlers.push({ doc: d.doc, over: over, click: click, key: key });
+            } catch (e) {}
+        });
+        setStatus('Bewege die Maus über die Vorschau und klicke ein Element an.', '');
+    }
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && pickerActive) setPicker(false);
+    });
+
+    /* ------------------------------------------------------------ */
+    /* Datei laden / Vorschau / Export                               */
+    /* ------------------------------------------------------------ */
+    function previewUrl() {
+        return 'styler-api/files/' + session.id + '/' +
+            session.entry.split('/').map(encodeURIComponent).join('/');
+    }
+    async function handleFile(file) {
+        if (!file) return;
+        var lower = file.name.toLowerCase();
+        if (!/\.(html?|zip)$/.test(lower)) {
+            setStatus('Bitte eine .html-Datei oder ein .zip-Paket auswählen.', 'error');
+            return;
+        }
+        setPicker(false);
+        setStatus('Lade und analysiere „' + file.name + '“ …');
+        var fd = new FormData();
+        fd.append('file', file);
+        try {
+            var res = await fetch('styler-api/session', { method: 'POST', body: fd });
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Hochladen fehlgeschlagen.');
+            session = data;
+            resetSettings();
+            if (data.settings) {
+                applySettingsToUI(data.settings);
+                setStatus('Frühere Anpassungen aus der Datei wurden übernommen.', 'ok');
+            }
+            $('file-label').textContent = data.name + (data.type === 'zip' ? ' (HTML5-Paket)' : '');
+            ['pick-btn', 'analyze-btn', 'reset-btn', 'export-btn', 'reload-btn'].forEach(function (id) {
+                $(id).disabled = false;
+            });
+            $('preview-empty').style.display = 'none';
+            $('preview').style.display = 'block';
+            $('preview').src = previewUrl();
+        } catch (err) {
+            setStatus(err.message, 'error');
+        }
+    }
+    $('preview').addEventListener('load', function () {
+        if (!session) return;
+        applyStyles();
+        clearTimeout(analyzeTimer);
+        analyzeTimer = setTimeout(analyze, 1500); // H5P braucht einen Moment zum Rendern
+    });
+    async function exportFile() {
+        if (!session) return;
+        $('export-btn').disabled = true;
+        setStatus('Erzeuge angepasste Datei …');
+        try {
+            var res = await fetch('styler-api/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: session.id,
+                    layoutCss: buildLayoutCss(),
+                    themeCss: buildThemeCss(),
+                    settings: collectSettings()
+                })
+            });
+            if (!res.ok) {
+                var message = 'Export fehlgeschlagen.';
+                try { message = (await res.json()).error || message; } catch (e) {}
+                throw new Error(message);
+            }
+            var blob = await res.blob();
+            var disposition = res.headers.get('Content-Disposition') || '';
+            var m = disposition.match(/filename\*=UTF-8''([^;]+)/);
+            var name = m ? decodeURIComponent(m[1])
+                : (session.type === 'zip' ? 'angepasst.zip' : 'angepasst.html');
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(url);
+            setStatus('Fertig! Die angepasste Datei wurde heruntergeladen.', 'ok');
+        } catch (err) {
+            setStatus(err.message, 'error');
+        } finally {
+            $('export-btn').disabled = false;
+        }
+    }
+
+    /* ------------------------------------------------------------ */
+    /* Ereignisse verdrahten                                         */
+    /* ------------------------------------------------------------ */
+    var dropzone = $('dropzone');
+    dropzone.addEventListener('click', function () { $('file-input').click(); });
+    $('file-input').addEventListener('change', function () { handleFile($('file-input').files[0]); });
+    dropzone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        handleFile(e.dataTransfer.files[0]);
+    });
+
+    ['m-top', 'm-right', 'm-bottom', 'm-left', 'width', 'font-size', 'font-custom', 'custom-css']
+        .forEach(function (id) { $(id).addEventListener('input', applyStyles); });
+    ['c-page', 'c-content', 'c-text', 'c-accent'].forEach(function (id) {
+        $(id + '-on').addEventListener('change', applyStyles);
+        $(id).addEventListener('input', function () {
+            $(id + '-on').checked = true;
+            applyStyles();
+        });
+    });
+    $('font').addEventListener('change', function () {
+        $('font-custom').style.display = $('font').value === '__custom__' ? 'block' : 'none';
+        applyStyles();
+    });
+    $('group-search').addEventListener('input', renderGroups);
+    $('analyze-btn').addEventListener('click', function () {
+        applyStyles();
+        analyze();
+    });
+    $('pick-btn').addEventListener('click', function () { setPicker(!pickerActive); });
+    $('reset-btn').addEventListener('click', function () {
+        if (confirm('Alle Anpassungen zurücksetzen?')) resetSettings();
+    });
+    $('export-btn').addEventListener('click', exportFile);
+    $('reload-btn').addEventListener('click', function () {
+        if (session) $('preview').src = previewUrl();
+    });
+    $('preview-width').addEventListener('change', function () {
+        $('preview').style.width = $('preview-width').value || '100%';
+        $('preview').style.flex = $('preview-width').value ? 'none' : '';
+    });
+})();
+</script>
+</body>
+</html>
