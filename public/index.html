@@ -140,6 +140,19 @@
             </label>
         </fieldset>
 
+        <fieldset>
+            <legend>Mathe-Formeln (LaTeX, z.&nbsp;B. <code>\( 3^2 \)</code>)</legend>
+            <select id="math-mode" style="width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:8px; font-size:.95rem;">
+                <option value="auto" selected>Automatisch erkennen (empfohlen)</option>
+                <option value="on">Immer einbinden</option>
+                <option value="off">Nicht einbinden</option>
+            </select>
+            <p class="hint" style="font-size:.85rem; color:#5a6472; margin:6px 0 0;">
+                Bindet MathJax offline-fähig ein (+2,2&nbsp;MB) und wandelt Formeln auch in Aufgaben um,
+                die erst später erscheinen (z.&nbsp;B. GameMap-Etappen, Präsentationsfolien).
+            </p>
+        </fieldset>
+
         <details class="styling" id="styling">
             <summary>Gestaltung anpassen (optional)</summary>
             <p class="hint">Alle Felder sind optional – leere Felder lassen die Original-Darstellung unverändert.</p>
@@ -204,7 +217,7 @@
         Datei laden, Schriften/Farben/Elemente analysieren lassen und mit Live-Vorschau
         Ränder, Breite, Schrift und Farben ändern.
     </div>
-    <footer>Basiert auf Lumi H5P-Nodejs-library und h5p-standalone. Fehlende Bibliotheken werden automatisch vom H5P-Hub nachgeladen. · v1.3.0</footer>
+    <footer>Basiert auf Lumi H5P-Nodejs-library und h5p-standalone. Fehlende Bibliotheken werden automatisch vom H5P-Hub nachgeladen. · v1.4.0</footer>
 </main>
 <script>
     const dropzone = document.getElementById('dropzone');
@@ -297,6 +310,7 @@
         const formData = new FormData();
         formData.append('file', selectedFile);
         formData.append('format', format);
+        formData.append('math', document.getElementById('math-mode').value);
         const styleOptions = collectStyleOptions();
         if (styleOptions) formData.append('style', JSON.stringify(styleOptions));
 

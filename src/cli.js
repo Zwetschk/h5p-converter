@@ -22,6 +22,8 @@ Optionen:
   --format package   HTML5-Paket (.zip) für Webserver/LMS
   --format both      beide Varianten erzeugen
   --out <ordner>     Zielordner (Standard: Ordner der Eingabedatei)
+  --mathe <modus>    Mathe-Formeln per MathJax: auto (Standard; nur wenn der
+                     Inhalt Formeln wie \\( … \\) enthält), an, aus
   --help             diese Hilfe anzeigen
 
 Gestaltung (alle optional):
@@ -47,9 +49,17 @@ async function main() {
     let outDir = null;
     const style = {};
     let cssFile = null;
+    let mathMode = 'auto';
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--format') {
             format = args[++i];
+        } else if (args[i] === '--mathe') {
+            const value = args[++i];
+            mathMode = { auto: 'auto', an: 'on', aus: 'off' }[value];
+            if (!mathMode) {
+                console.error(`Unbekannter Wert für --mathe: ${value} (auto, an, aus)`);
+                process.exit(1);
+            }
         } else if (args[i] === '--out') {
             outDir = args[++i];
         } else if (args[i] === '--rand') {
@@ -112,28 +122,32 @@ async function main() {
         try {
             if (format === 'html' || format === 'both') {
                 console.log(`Konvertiere (All-in-one-HTML): ${inputPath}`);
-                const { html, title } = await convertToAllInOneHtml(
+                const { html, title, math } = await convertToAllInOneHtml(
                     inputPath,
-                    styleOptions
+                    styleOptions,
+                    { math: mathMode }
                 );
                 const target = path.join(
                     targetDir,
                     `${safeFileName(title)}.html`
                 );
                 await fs.writeFile(target, html, 'utf8');
+                if (math) console.log('  Mathe-Formeln: MathJax eingebettet');
                 console.log(`  -> ${target}`);
             }
             if (format === 'package' || format === 'both') {
                 console.log(`Konvertiere (HTML5-Paket): ${inputPath}`);
-                const { zip, title } = await convertToHtml5Package(
+                const { zip, title, math } = await convertToHtml5Package(
                     inputPath,
-                    styleOptions
+                    styleOptions,
+                    { math: mathMode }
                 );
                 const target = path.join(
                     targetDir,
                     `${safeFileName(title)}-html5-paket.zip`
                 );
                 await fs.writeFile(target, zip);
+                if (math) console.log('  Mathe-Formeln: MathJax eingebettet');
                 console.log(`  -> ${target}`);
             }
         } catch (error) {

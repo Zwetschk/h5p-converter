@@ -32,6 +32,11 @@ require.cache[postcssCleanPath] = {
 };
 
 const HtmlExporter = require('@lumieducation/h5p-html-exporter').default;
+const {
+    buildMathScript,
+    shouldEmbedMath,
+    MATHDISPLAY_MACHINE_NAME
+} = require('./math');
 const playerAssetList = require('@lumieducation/h5p-server/build/src/playerAssetList.json');
 
 // Core-Stylesheets wie in H5P 1.28 (H5PCore::$styles in h5p.classes.php).
@@ -206,9 +211,10 @@ function buildThemeCss(o) {
 /**
  * Eigenes Seiten-Template für den HTML-Exporter: identisch zum
  * Standard-Template, ergänzt um einen Style-Block mit den
- * Benutzeranpassungen (nach dem H5P-CSS, damit sie Vorrang haben).
+ * Benutzeranpassungen (nach dem H5P-CSS, damit sie Vorrang haben) und
+ * optional um MathJax.
  */
-function buildExporterTemplate(customCss) {
+function buildExporterTemplate(customCss, mathScript) {
     return (integration, scriptsBundle, stylesBundle, contentId) => `<!doctype html>
 <html class="h5p-iframe">
 <head>
@@ -226,6 +232,7 @@ function buildExporterTemplate(customCss) {
     <style>${stylesBundle}</style>
     <style>/* Benutzeranpassungen (H5P Converter) */
 ${customCss}</style>
+    ${mathScript ? `<script>/* MathJax 3 (H5P Converter) */\n${mathScript}</script>` : ''}
 </head>
 <body>
     <div class="h5p-content lag" data-content-id="${contentId}"></div>
@@ -372,7 +379,8 @@ async function importPackage(h5pEditor, buffer) {
 
 /**
  * Importiert die Datei und speichert den Inhalt im temporären Speicher.
- * @returns {Promise<{contentId: string, metadata: object}>}
+ * @returns {Promise<{contentId: string, metadata: object, params: object,
+ *   hasMathDisplay: boolean}>}
  */
 async function importAndSave(h5pEditor, inputPath) {
     const buffer = await fs.readFile(inputPath);
@@ -391,14 +399,39 @@ async function importAndSave(h5pEditor, inputPath) {
         );
     }
     const ubername = `${mainDependency.machineName} ${mainDependency.majorVersion}.${mainDependency.minorVersion}`;
+    const params = parameters.params ?? parameters;
     const contentId = await h5pEditor.saveOrUpdateContent(
         undefined,
-        parameters.params ?? parameters,
+        params,
         metadata,
         ubername,
         USER
     );
-    return { contentId, metadata };
+    const addons = await h5pEditor.libraryStorage.listAddons();
+    const hasMathDisplay = addons.some(
+        (addon) => addon.machineName === MATHDISPLAY_MACHINE_NAME
+    );
+    return { contentId, metadata, params, hasMathDisplay };
+}
+
+/**
+ * Bibliotheksspeicher ohne das Add-on H5P.MathDisplay: Wird unser eigenes
+ * MathJax eingebettet, würde MathDisplay sonst zusätzlich MathJax 2 aus dem
+ * Internet laden und mit unserer Instanz kollidieren.
+ */
+function withoutMathDisplay(libraryStorage) {
+    return new Proxy(libraryStorage, {
+        get(target, prop) {
+            if (prop === 'listAddons') {
+                return async () =>
+                    (await target.listAddons()).filter(
+                        (addon) => addon.machineName !== MATHDISPLAY_MACHINE_NAME
+                    );
+            }
+            const value = target[prop];
+            return typeof value === 'function' ? value.bind(target) : value;
+        }
+    });
 }
 
 /**
@@ -407,25 +440,27 @@ async function importAndSave(h5pEditor, inputPath) {
  * Lumi-Desktop-App).
  * @param {string} inputPath Pfad zur .h5p-Datei
  * @param {object} [rawStyleOptions] optionale Gestaltungsoptionen
- * @returns {Promise<{html: string, title: string}>}
+ * @param {{math?: 'auto'|'on'|'off'}} [options] Mathe-Formeln (MathJax)
+ * @returns {Promise<{html: string, title: string, math: boolean}>}
  */
-async function convertToAllInOneHtml(inputPath, rawStyleOptions) {
+async function convertToAllInOneHtml(inputPath, rawStyleOptions, options = {}) {
     const styleOptions = normalizeStyleOptions(rawStyleOptions);
     return withH5PEnvironment(async (h5pEditor, config) => {
-        const { contentId, metadata } = await importAndSave(
-            h5pEditor,
-            inputPath
-        );
+        const { contentId, metadata, params, hasMathDisplay } =
+            await importAndSave(h5pEditor, inputPath);
         const customCss = styleOptions
             ? `${buildLayoutCss(styleOptions)}\n${buildThemeCss(styleOptions)}`
             : '';
+        const math = shouldEmbedMath(options.math, params, hasMathDisplay);
         const exporter = new HtmlExporter(
-            h5pEditor.libraryStorage,
+            math
+                ? withoutMathDisplay(h5pEditor.libraryStorage)
+                : h5pEditor.libraryStorage,
             h5pEditor.contentStorage,
             config,
             CORE_PATH,
             EDITOR_PATH,
-            customCss.trim() ? buildExporterTemplate(customCss) : undefined
+            buildExporterTemplate(customCss, math ? buildMathScript() : null)
         );
         const html = await exporter.createSingleBundle(contentId, USER, {
             language: metadata.defaultLanguage || 'de',
@@ -434,7 +469,8 @@ async function convertToAllInOneHtml(inputPath, rawStyleOptions) {
         });
         return {
             html,
-            title: metadata.title || path.parse(inputPath).name
+            title: metadata.title || path.parse(inputPath).name,
+            math
         };
     });
 }
@@ -447,15 +483,15 @@ async function convertToAllInOneHtml(inputPath, rawStyleOptions) {
  * (file:// funktioniert wegen Browser-Sicherheitsregeln nicht).
  * @param {string} inputPath Pfad zur .h5p-Datei
  * @param {object} [rawStyleOptions] optionale Gestaltungsoptionen
- * @returns {Promise<{zip: Buffer, title: string}>}
+ * @param {{math?: 'auto'|'on'|'off'}} [options] Mathe-Formeln (MathJax)
+ * @returns {Promise<{zip: Buffer, title: string, math: boolean}>}
  */
-async function convertToHtml5Package(inputPath, rawStyleOptions) {
+async function convertToHtml5Package(inputPath, rawStyleOptions, options = {}) {
     const styleOptions = normalizeStyleOptions(rawStyleOptions);
     return withH5PEnvironment(async (h5pEditor, config, workDir) => {
-        const { contentId, metadata } = await importAndSave(
-            h5pEditor,
-            inputPath
-        );
+        const { contentId, metadata, params, hasMathDisplay } =
+            await importAndSave(h5pEditor, inputPath);
+        const math = shouldEmbedMath(options.math, params, hasMathDisplay);
         // Vollständiges .h5p exportieren – enthält garantiert alle Bibliotheken
         const packageExporter = new H5P.PackageExporter(
             h5pEditor.libraryManager,
@@ -479,17 +515,20 @@ async function convertToHtml5Package(inputPath, rawStyleOptions) {
         const zip = await buildStandaloneZip(
             await fs.readFile(completePath),
             title,
-            styleOptions
+            styleOptions,
+            math
         );
-        return { zip, title };
+        return { zip, title, math };
     });
 }
+
+const PACKAGE_MATH_FILE = 'assets/mathjax-h5p.js';
 
 /**
  * Baut aus einem vollständigen .h5p-Puffer das HTML5-Paket-Zip
  * (h5p-content/ + assets/ + index.html + LIESMICH.txt).
  */
-async function buildStandaloneZip(h5pBuffer, title, styleOptions) {
+async function buildStandaloneZip(h5pBuffer, title, styleOptions, math) {
     const source = new AdmZip(h5pBuffer);
     const out = new AdmZip();
 
@@ -508,13 +547,18 @@ async function buildStandaloneZip(h5pBuffer, title, styleOptions) {
     if (themeCss.trim()) {
         out.addFile('custom.css', Buffer.from(themeCss, 'utf8'));
     }
+    // MathJax muss ebenfalls ins H5P-iframe (per customJs von h5p-standalone)
+    if (math) {
+        out.addFile(PACKAGE_MATH_FILE, Buffer.from(buildMathScript(), 'utf8'));
+    }
     out.addFile(
         'index.html',
         Buffer.from(
             buildPackageIndexHtml(
                 title,
                 buildLayoutCss(styleOptions),
-                themeCss.trim() ? 'custom.css' : null
+                themeCss.trim() ? 'custom.css' : null,
+                math ? PACKAGE_MATH_FILE : null
             ),
             'utf8'
         )
@@ -536,7 +580,12 @@ async function addDirToZip(zip, dir, prefix) {
     }
 }
 
-function buildPackageIndexHtml(title, layoutCss = '', customCssFile = null) {
+function buildPackageIndexHtml(
+    title,
+    layoutCss = '',
+    customCssFile = null,
+    mathJsFile = null
+) {
     return `<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -581,6 +630,7 @@ ${layoutCss}</style>
             fullScreen: true
         };
         ${customCssFile ? `options.customCss = [base + '${customCssFile}'];` : ''}
+        ${mathJsFile ? `options.customJs = [base + '${mathJsFile}'];` : ''}
         new H5PStandalone.H5P(document.getElementById('h5p-container'), options).catch(function (error) {
             console.error('H5P konnte nicht geladen werden:', error);
         });

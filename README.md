@@ -102,11 +102,34 @@ wurden:
 Bei HTML5-Paketen sorgt ein kleines mitgeliefertes Skript dafür, dass die
 Anpassungen auch in das H5P-iframe des Players übernommen werden.
 
+## Mathe-Formeln (LaTeX)
+
+Formeln wie `\( 3^2 \)`, `\[ a^2 + b^2 = c^2 \]` oder `$$ \frac{1}{2} $$`
+zeigen H5P-Plattformen (Moodle, WordPress, Lumi …) über das Add-on
+`H5P.MathDisplay` an. Dieses wird beim Export einer .h5p-Datei meist nicht
+mitgeliefert und lädt MathJax ohnehin aus dem Internet – in einer
+Offline-HTML-Datei bleiben die Formeln dann als Rohtext stehen.
+
+Der Converter bettet deshalb **MathJax 3 komplett offline** ein (+2,2 MB):
+
+- **Automatisch erkennen** (Standard): nur wenn der Inhalt Formeln enthält
+  oder die Datei MathDisplay mitbringt.
+- **Immer einbinden / Nicht einbinden**: manuell erzwingen bzw. abschalten
+  (bei „Nicht einbinden" bleibt ein mitgeliefertes MathDisplay aktiv).
+- Ein `MutationObserver` wandelt auch Aufgaben um, die erst später erscheinen
+  (GameMap-Etappen, Präsentationsfolien, Fragenseiten), und passt danach die
+  H5P-Größe an.
+- Kommandozeile: `--mathe auto|an|aus`.
+
+Ein einzelnes `$ … $` wird bewusst nicht als Formel erkannt
+(Verwechslungsgefahr mit Geldbeträgen).
+
 ## Projektstruktur
 
 ```
 scripts/setup.js    einmaliger Download der H5P-Core-/Editor-Dateien
 src/converter.js    Kernlogik (beide Konvertierungen)
+src/math.js         MathJax-Einbettung + Beobachter für nachgeladene Inhalte
 src/cli.js          Kommandozeilen-Interface
 src/server.js       lokale Web-Oberfläche (Express, Port 3300)
 src/styler.js       Design-Editor-API (Sitzungen, Vorschau, Export)

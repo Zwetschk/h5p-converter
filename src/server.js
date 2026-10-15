@@ -40,11 +40,15 @@ app.post('/convert', upload.single('file'), async (req, res) => {
                 .json({ error: 'Gestaltungsoptionen sind kein gültiges JSON.' });
         }
     }
+    const math = ['auto', 'on', 'off'].includes(req.body.math)
+        ? req.body.math
+        : 'auto';
     try {
         if (format === 'html') {
             const { html, title } = await convertToAllInOneHtml(
                 req.file.path,
-                styleOptions
+                styleOptions,
+                { math }
             );
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             res.setHeader(
@@ -55,7 +59,8 @@ app.post('/convert', upload.single('file'), async (req, res) => {
         } else {
             const { zip, title } = await convertToHtml5Package(
                 req.file.path,
-                styleOptions
+                styleOptions,
+                { math }
             );
             res.setHeader('Content-Type', 'application/zip');
             res.setHeader(
