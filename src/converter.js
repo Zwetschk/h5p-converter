@@ -12,6 +12,25 @@ const os = require('os');
 const { promises: fs, createWriteStream } = require('fs');
 const AdmZip = require('adm-zip');
 const H5P = require('@lumieducation/h5p-server');
+
+// Der HTML-Exporter minifiziert CSS mit postcss-clean (clean-css 4.2). Diese
+// Version versteht die moderne CSS-Syntax der H5P-1.28-Bibliotheken (z. B.
+// H5P.Components) nicht und verwirft dabei ganze Regeln – u. a. die
+// Grundregel für .h5p-theme-button (Buttons zu klein, Ziehelemente ohne
+// Rahmen). Daher wird das Modul vor dem Laden des Exporters durch ein
+// Plugin ersetzt, das das CSS unverändert durchreicht.
+const postcssCleanPath = require.resolve('postcss-clean', {
+    paths: [path.dirname(require.resolve('@lumieducation/h5p-html-exporter'))]
+});
+const passThroughCssPlugin = () => ({ postcssPlugin: 'h5p-converter-no-clean' });
+passThroughCssPlugin.postcss = true;
+require.cache[postcssCleanPath] = {
+    id: postcssCleanPath,
+    filename: postcssCleanPath,
+    loaded: true,
+    exports: passThroughCssPlugin
+};
+
 const HtmlExporter = require('@lumieducation/h5p-html-exporter').default;
 const playerAssetList = require('@lumieducation/h5p-server/build/src/playerAssetList.json');
 
