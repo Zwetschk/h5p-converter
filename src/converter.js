@@ -13,6 +13,21 @@ const { promises: fs, createWriteStream } = require('fs');
 const AdmZip = require('adm-zip');
 const H5P = require('@lumieducation/h5p-server');
 const HtmlExporter = require('@lumieducation/h5p-html-exporter').default;
+const playerAssetList = require('@lumieducation/h5p-server/build/src/playerAssetList.json');
+
+// Core-Stylesheets wie in H5P 1.28 (H5PCore::$styles in h5p.classes.php).
+// Lumi v10 kennt nur die 1.27-Liste; ohne h5p-fonts/h5p-theme fehlen bei
+// aktuellen Inhaltstypen die Icon-Schrift "h5p-theme" und die Theme-Farben.
+playerAssetList.styles.core = [
+    'styles/h5p-fonts.css',
+    'styles/h5p.css',
+    'styles/h5p-confirmation-dialog.css',
+    'styles/h5p-core-button.css',
+    'styles/h5p-theme.css',
+    'styles/h5p-theme-variables.css',
+    'styles/h5p-tooltip.css',
+    'styles/h5p-table.css'
+];
 
 const VENDOR_DIR = path.join(__dirname, '..', 'vendor');
 const CORE_PATH = path.join(VENDOR_DIR, 'h5p-core');
@@ -236,6 +251,11 @@ async function withH5PEnvironment(callback) {
         // mit "install-library-lock-max-time-exceeded" ab.
         config.installLibraryLockMaxOccupationTime = 180000;
         config.installLibraryLockTimeout = 300000;
+        // Die Core-Dateien in vendor/ (siehe scripts/setup.js) implementieren
+        // H5P-Core-API 1.28; Lumi meldet standardmäßig 1.27 und würde
+        // aktuelle Inhaltstypen mit "api-version-unsupported" ablehnen.
+        config.coreApiVersion = { major: 1, minor: 28 };
+        config.h5pVersion = '1.28.0';
         const h5pEditor = H5P.fs(
             config,
             librariesPath,
